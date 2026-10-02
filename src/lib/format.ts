@@ -38,3 +38,42 @@ export function toUtcRangeIso(dateFromLocal: string, dateToLocal: string): { dat
   endExclusive.setDate(endExclusive.getDate() + 1);
   return { dateFrom: start.toISOString(), dateTo: endExclusive.toISOString() };
 }
+
+export type DateFilterPreset = "today" | "yesterday" | "this_week" | "this_month";
+
+export const DATE_FILTER_OPTIONS: { value: DateFilterPreset; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "this_week", label: "This Week" },
+  { value: "this_month", label: "This Month" },
+];
+
+export function getDateFilterRange(preset: DateFilterPreset): { dateFrom?: string; dateTo?: string } {
+  const now = new Date();
+  switch (preset) {
+    case "today": {
+      const today = toDateInputValue(now);
+      return toUtcRangeIso(today, today);
+    }
+    case "yesterday": {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yStr = toDateInputValue(yesterday);
+      return toUtcRangeIso(yStr, yStr);
+    }
+    case "this_week": {
+      const day = now.getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + diffToMonday);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      return toUtcRangeIso(toDateInputValue(monday), toDateInputValue(sunday));
+    }
+    case "this_month": {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return toUtcRangeIso(toDateInputValue(firstDay), toDateInputValue(lastDay));
+    }
+  }
+}
