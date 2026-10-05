@@ -305,6 +305,10 @@ function ProductsPageContent() {
           />
         </div>
         <Select
+          items={[
+            { value: "all", label: "All categories" },
+            ...(categories.data?.map((c) => ({ value: c.id, label: c.name })) ?? []),
+          ]}
           value={categoryId}
           onValueChange={(v) => {
             setCategoryId(v ?? "all");
@@ -312,7 +316,13 @@ function ProductsPageContent() {
           }}
         >
           <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="All categories" />
+            <SelectValue placeholder="All categories">
+              {(val: string | null) =>
+                val === "all" || !val
+                  ? "All categories"
+                  : (categories.data?.find((c) => c.id === val)?.name ?? val)
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
@@ -447,11 +457,18 @@ function ProductsPageContent() {
             <div className="space-y-2">
               <Label>Category</Label>
               <Select
-                value={form.categoryId}
+                items={categories.data?.map((c) => ({ value: c.id, label: c.name }))}
+                value={form.categoryId || null}
                 onValueChange={(v) => v && setForm({ ...form, categoryId: v })}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select category" />
+                  <SelectValue placeholder="Select category">
+                    {(val: string | null) =>
+                      val
+                        ? (categories.data?.find((c) => c.id === val)?.name ?? val)
+                        : "Select category"
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {categories.data?.map((c) => (

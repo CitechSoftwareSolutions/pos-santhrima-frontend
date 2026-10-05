@@ -278,11 +278,21 @@ function PromotionsPageContent() {
             <div className="space-y-2">
               <Label>Promotion Type</Label>
               <Select
+                items={Object.entries(PromotionTypeLabels).map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
                 value={String(form.type)}
                 onValueChange={(v) => v && setForm({ ...form, type: Number(v) as PromotionType })}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {(val: string | null) =>
+                      val != null && (Number(val) in PromotionTypeLabels || val in PromotionTypeLabels)
+                        ? PromotionTypeLabels[Number(val) as PromotionType]
+                        : val
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(PromotionTypeLabels).map(([value, label]) => (
