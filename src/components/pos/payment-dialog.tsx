@@ -106,13 +106,23 @@ export function PaymentDialog({
             <div className="space-y-2">
               <Label>Payment Method</Label>
               <Select
+                items={METHOD_OPTIONS.map((m) => ({
+                  value: String(m),
+                  label: PaymentMethodLabels[m],
+                }))}
                 value={String(method)}
                 onValueChange={(v) => {
                   if (v) setMethod(Number(v) as PaymentMethod);
                 }}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {(val: string | null) =>
+                      val != null && Number(val) in PaymentMethodLabels
+                        ? PaymentMethodLabels[Number(val) as PaymentMethod]
+                        : val
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {METHOD_OPTIONS.map((m) => (

@@ -54,9 +54,22 @@ export function ProductGrid({ onSelect }: { onSelect: (product: ProductDto) => v
           />
           <Barcode className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         </div>
-        <Select value={categoryId} onValueChange={(value) => setCategoryId(value ?? "all")}>
+        <Select
+          items={[
+            { value: "all", label: "All categories" },
+            ...(categories.data?.map((c) => ({ value: c.id, label: c.name })) ?? []),
+          ]}
+          value={categoryId}
+          onValueChange={(value) => setCategoryId(value ?? "all")}
+        >
           <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="All categories" />
+            <SelectValue placeholder="All categories">
+              {(val: string | null) =>
+                val === "all" || !val
+                  ? "All categories"
+                  : (categories.data?.find((c) => c.id === val)?.name ?? val)
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
