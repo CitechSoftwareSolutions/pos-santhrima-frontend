@@ -42,9 +42,9 @@ import { ROLES, type ProductDto } from "@/lib/types";
 interface PriceTierRow {
   key: string;
   quantity: string;
-  retailPrice: string;
-  wholesalePrice: string;
-  specialPrice: string;
+  retailDiscountPercent: string;
+  wholesaleDiscountPercent: string;
+  specialDiscountPercent: string;
 }
 
 interface ProductFormState {
@@ -70,10 +70,25 @@ function newTierRow(): PriceTierRow {
   return {
     key: crypto.randomUUID(),
     quantity: "",
-    retailPrice: "",
-    wholesalePrice: "",
-    specialPrice: "",
+    retailDiscountPercent: "",
+    wholesaleDiscountPercent: "",
+    specialDiscountPercent: "",
   };
+}
+
+function createDefaultTiers(count = 5): PriceTierRow[] {
+  return Array.from({ length: count }, () => newTierRow());
+}
+
+function calculateDiscountPrice(basePrice: number, discountPercentStr: string): number | null {
+  if (basePrice <= 0) return null;
+  const trimmed = discountPercentStr.trim();
+  if (trimmed === "") return basePrice;
+  const discount = parseFloat(trimmed);
+  if (isNaN(discount)) return basePrice;
+  const clampedDiscount = Math.min(100, Math.max(0, discount));
+  const finalPrice = basePrice * (1 - clampedDiscount / 100);
+  return Math.round(finalPrice * 100) / 100;
 }
 
 const emptyForm: ProductFormState = {
@@ -132,16 +147,27 @@ function ProductsPageContent() {
 
   function openCreate() {
     setEditing(null);
+    const initialCategory = categories.data?.[0]?.id ?? "";
     setForm({
       ...emptyForm,
-      categoryId: categories.data?.[0]?.id ?? "",
-      priceTiers: [newTierRow(), newTierRow()],
+      categoryId: initialCategory,
+      priceTiers: createDefaultTiers(5),
     });
+    if (initialCategory) {
+      generateSkuForCategory(initialCategory);
+    }
     setDialogOpen(true);
   }
 
   function openEdit(product: ProductDto) {
     setEditing(product);
+    const calcPercent = (base: number, tierPrice: number | null | undefined) => {
+      if (tierPrice == null || base <= 0) return "";
+      const discount = ((base - tierPrice) / base) * 100;
+      const rounded = Math.round(discount * 100) / 100;
+      return String(rounded >= 0 ? rounded : 0);
+    };
+
     setForm({
       sku: product.sku,
       barcode: product.barcode ?? "",
@@ -152,13 +178,18 @@ function ProductsPageContent() {
       retailPrice: String(product.retailPrice),
       wholesalePrice: product.wholesalePrice === null ? "" : String(product.wholesalePrice),
       specialPrice: product.specialPrice === null ? "" : String(product.specialPrice),
-      priceTiers: product.priceTiers.map((t) => ({
-        key: t.id,
-        quantity: String(t.quantity),
-        retailPrice: String(t.retailPrice),
-        wholesalePrice: t.wholesalePrice === null ? "" : String(t.wholesalePrice),
-        specialPrice: t.specialPrice === null ? "" : String(t.specialPrice),
-      })),
+      priceTiers:
+        product.priceTiers.length > 0
+          ? product.priceTiers.map((t) => ({
+              key: t.id,
+              quantity: String(t.quantity),
+              retailDiscountPercent: calcPercent(product.retailPrice, t.retailPrice),
+              wholesaleDiscountPercent:
+                product.wholesalePrice != null ? calcPercent(product.wholesalePrice, t.wholesalePrice) : "",
+              specialDiscountPercent:
+                product.specialPrice != null ? calcPercent(product.specialPrice, t.specialPrice) : "",
+            }))
+          : createDefaultTiers(5),
       taxRate: String(product.taxRate),
       unit: product.unit,
       allowDecimalQuantity: product.allowDecimalQuantity,
@@ -176,23 +207,83 @@ function ProductsPageContent() {
       return;
     }
 
-    const filledTiers = form.priceTiers.filter(
-      (t) =>
-        t.quantity.trim() !== "" ||
-        t.retailPrice.trim() !== "" ||
-        t.wholesalePrice.trim() !== "" ||
-        t.specialPrice.trim() !== "",
-    );
-    if (filledTiers.some((t) => t.quantity.trim() === "" || t.retailPrice.trim() === "")) {
-      toast.error("Every price tier needs a quantity and a retail price.");
+    const baseRetail = parseFloat(form.retailPrice) || 0;
+    if (baseRetail <= 0) {
+      toast.error("A valid retail price is required.");
       return;
     }
-    const priceTiers = filledTiers.map((t) => ({
-      quantity: parseFloat(t.quantity),
-      retailPrice: parseFloat(t.retailPrice),
-      wholesalePrice: t.wholesalePrice.trim() === "" ? null : parseFloat(t.wholesalePrice),
-      specialPrice: t.specialPrice.trim() === "" ? null : parseFloat(t.specialPrice),
-    }));
+
+    const baseWholesale =
+      form.wholesalePrice.trim() !== "" ? parseFloat(form.wholesalePrice) : null;
+    const baseSpecial =
+      form.specialPrice.trim() !== "" ? parseFloat(form.specialPrice) : null;
+
+    const hasAnyTierData = (t: PriceTierRow) =>
+      t.quantity.trim() !== "" ||
+      t.retailDiscountPercent.trim() !== "" ||
+      t.wholesaleDiscountPercent.trim() !== "" ||
+      t.specialDiscountPercent.trim() !== "";
+
+    const activeTiers = form.priceTiers.filter(hasAnyTierData);
+    for (const t of activeTiers) {
+      if (!t.quantity.trim()) {
+        toast.error("Please enter a quantity for all configured price tiers.");
+        return;
+      }
+      const q = parseFloat(t.quantity);
+      if (isNaN(q) || q <= 0) {
+        toast.error("Price tier quantity must be greater than 0.");
+        return;
+      }
+      const retDiscount = parseFloat(t.retailDiscountPercent || "0");
+      if (isNaN(retDiscount) || retDiscount < 0 || retDiscount > 100) {
+        toast.error("Retail discount must be between 0% and 100%.");
+        return;
+      }
+      if (t.wholesaleDiscountPercent.trim() !== "") {
+        const wsDiscount = parseFloat(t.wholesaleDiscountPercent);
+        if (isNaN(wsDiscount) || wsDiscount < 0 || wsDiscount > 100) {
+          toast.error("Wholesale discount must be between 0% and 100%.");
+          return;
+        }
+      }
+      if (t.specialDiscountPercent.trim() !== "") {
+        const spDiscount = parseFloat(t.specialDiscountPercent);
+        if (isNaN(spDiscount) || spDiscount < 0 || spDiscount > 100) {
+          toast.error("Special discount must be between 0% and 100%.");
+          return;
+        }
+      }
+    }
+
+    const priceTiers = activeTiers.map((t) => {
+      const retDiscount = parseFloat(t.retailDiscountPercent || "0");
+      const calculatedRetail = Math.round(baseRetail * (1 - retDiscount / 100) * 100) / 100;
+
+      let calculatedWholesale: number | null = null;
+      if (baseWholesale !== null && t.wholesaleDiscountPercent.trim() !== "") {
+        const wsDiscount = parseFloat(t.wholesaleDiscountPercent);
+        if (!isNaN(wsDiscount) && wsDiscount >= 0 && wsDiscount <= 100) {
+          calculatedWholesale = Math.round(baseWholesale * (1 - wsDiscount / 100) * 100) / 100;
+        }
+      }
+
+      let calculatedSpecial: number | null = null;
+      if (baseSpecial !== null && t.specialDiscountPercent.trim() !== "") {
+        const spDiscount = parseFloat(t.specialDiscountPercent);
+        if (!isNaN(spDiscount) && spDiscount >= 0 && spDiscount <= 100) {
+          calculatedSpecial = Math.round(baseSpecial * (1 - spDiscount / 100) * 100) / 100;
+        }
+      }
+
+      return {
+        quantity: parseFloat(t.quantity),
+        retailPrice: calculatedRetail,
+        wholesalePrice: calculatedWholesale,
+        specialPrice: calculatedSpecial,
+      };
+    });
+
     const uniqueQuantities = new Set(priceTiers.map((t) => t.quantity));
     if (uniqueQuantities.size !== priceTiers.length) {
       toast.error("Price tiers cannot have duplicate quantities.");
@@ -206,9 +297,9 @@ function ProductsPageContent() {
       description: form.description || null,
       categoryId: form.categoryId,
       costPrice: parseFloat(form.costPrice) || 0,
-      retailPrice: parseFloat(form.retailPrice) || 0,
-      wholesalePrice: form.wholesalePrice.trim() === "" ? null : parseFloat(form.wholesalePrice),
-      specialPrice: form.specialPrice.trim() === "" ? null : parseFloat(form.specialPrice),
+      retailPrice: baseRetail,
+      wholesalePrice: baseWholesale,
+      specialPrice: baseSpecial,
       taxRate: parseFloat(form.taxRate) || 0,
       unit: form.unit || "pcs",
       allowDecimalQuantity: form.allowDecimalQuantity,
@@ -604,9 +695,14 @@ function ProductsPageContent() {
               </p>
             </div>
 
-            <div className="space-y-2 rounded-lg border p-3">
+            <div className="space-y-3 rounded-lg border p-3">
               <div className="flex items-center justify-between">
-                <Label>Quantity Price Tiers</Label>
+                <div>
+                  <Label className="text-sm font-semibold">Quantity Price Tiers</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Enter discount percentages from the selling prices above. Prices calculate in real-time.
+                  </p>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -617,90 +713,188 @@ function ProductsPageContent() {
                 </Button>
               </div>
 
-              {form.priceTiers.length > 0 && (
-                <div className="space-y-3">
-                  {form.priceTiers.map((tier) => {
-                    function updateTier(patch: Partial<PriceTierRow>) {
-                      setForm((f) => ({
-                        ...f,
-                        priceTiers: f.priceTiers.map((t) => (t.key === tier.key ? { ...t, ...patch } : t)),
-                      }));
-                    }
+              {form.priceTiers.length > 0 ? (
+                <div className="overflow-x-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead className="w-28 text-xs font-semibold">Quantity</TableHead>
+                        <TableHead className="min-w-36 text-xs font-semibold">Retail Discount</TableHead>
+                        <TableHead className="min-w-36 text-xs font-semibold">Wholesale Discount</TableHead>
+                        <TableHead className="min-w-36 text-xs font-semibold">Special Discount</TableHead>
+                        <TableHead className="w-10 p-0 text-center"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {form.priceTiers.map((tier) => {
+                        const baseRetail = parseFloat(form.retailPrice) || 0;
+                        const baseWholesale =
+                          form.wholesalePrice.trim() !== "" ? parseFloat(form.wholesalePrice) : null;
+                        const baseSpecial =
+                          form.specialPrice.trim() !== "" ? parseFloat(form.specialPrice) : null;
 
-                    return (
-                      <div key={tier.key} className="space-y-3 rounded-md border p-3">
-                        <div className="flex items-end gap-3">
-                          <div className="w-36 space-y-1">
-                            <Label className="text-xs text-muted-foreground">Quantity</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              step={form.allowDecimalQuantity ? "0.001" : "1"}
-                              value={tier.quantity}
-                              onChange={(e) => updateTier({ quantity: e.target.value })}
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="ml-auto text-destructive hover:text-destructive"
-                            onClick={() =>
-                              setForm({
-                                ...form,
-                                priceTiers: form.priceTiers.filter((t) => t.key !== tier.key),
-                              })
-                            }
-                          >
-                            <X className="size-4" />
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Retail Price</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              value={tier.retailPrice}
-                              onChange={(e) => updateTier({ retailPrice: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Wholesale Price</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              placeholder="Optional"
-                              value={tier.wholesalePrice}
-                              onChange={(e) => updateTier({ wholesalePrice: e.target.value })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Special Price</Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              placeholder="Optional"
-                              value={tier.specialPrice}
-                              onChange={(e) => updateTier({ specialPrice: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        const calcRetail = calculateDiscountPrice(
+                          baseRetail,
+                          tier.retailDiscountPercent,
+                        );
+                        const calcWholesale =
+                          baseWholesale !== null
+                            ? calculateDiscountPrice(baseWholesale, tier.wholesaleDiscountPercent)
+                            : null;
+                        const calcSpecial =
+                          baseSpecial !== null
+                            ? calculateDiscountPrice(baseSpecial, tier.specialDiscountPercent)
+                            : null;
+
+                        function updateTier(patch: Partial<PriceTierRow>) {
+                          setForm((f) => ({
+                            ...f,
+                            priceTiers: f.priceTiers.map((t) => (t.key === tier.key ? { ...t, ...patch } : t)),
+                          }));
+                        }
+
+                        return (
+                          <TableRow key={tier.key}>
+                            <TableCell className="py-2.5 align-top">
+                              <Input
+                                type="number"
+                                min={0}
+                                step={form.allowDecimalQuantity ? "0.001" : "1"}
+                                placeholder="Qty"
+                                value={tier.quantity}
+                                onChange={(e) => updateTier({ quantity: e.target.value })}
+                                className="h-8 text-sm"
+                              />
+                            </TableCell>
+                            <TableCell className="py-2.5 align-top">
+                              <div className="space-y-1">
+                                <div className="relative">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step="0.01"
+                                    placeholder="0"
+                                    value={tier.retailDiscountPercent}
+                                    onChange={(e) =>
+                                      updateTier({ retailDiscountPercent: e.target.value })
+                                    }
+                                    className="h-8 pr-6 text-sm"
+                                  />
+                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                                    %
+                                  </span>
+                                </div>
+                                <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                  {baseRetail <= 0 ? (
+                                    <span className="text-muted-foreground font-normal text-[11px]">
+                                      Set retail price
+                                    </span>
+                                  ) : calcRetail !== null ? (
+                                    formatCurrency(calcRetail)
+                                  ) : (
+                                    <span className="text-muted-foreground font-normal">-</span>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-2.5 align-top">
+                              <div className="space-y-1">
+                                <div className="relative">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step="0.01"
+                                    placeholder={baseWholesale !== null ? "0" : "N/A"}
+                                    disabled={baseWholesale === null}
+                                    value={tier.wholesaleDiscountPercent}
+                                    onChange={(e) =>
+                                      updateTier({ wholesaleDiscountPercent: e.target.value })
+                                    }
+                                    className="h-8 pr-6 text-sm disabled:opacity-50"
+                                  />
+                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                                    %
+                                  </span>
+                                </div>
+                                <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                  {baseWholesale === null ? (
+                                    <span className="text-muted-foreground font-normal text-[11px]">
+                                      No base wholesale
+                                    </span>
+                                  ) : calcWholesale !== null ? (
+                                    formatCurrency(calcWholesale)
+                                  ) : (
+                                    <span className="text-muted-foreground font-normal">-</span>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-2.5 align-top">
+                              <div className="space-y-1">
+                                <div className="relative">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    step="0.01"
+                                    placeholder={baseSpecial !== null ? "0" : "N/A"}
+                                    disabled={baseSpecial === null}
+                                    value={tier.specialDiscountPercent}
+                                    onChange={(e) =>
+                                      updateTier({ specialDiscountPercent: e.target.value })
+                                    }
+                                    className="h-8 pr-6 text-sm disabled:opacity-50"
+                                  />
+                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                                    %
+                                  </span>
+                                </div>
+                                <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                  {baseSpecial === null ? (
+                                    <span className="text-muted-foreground font-normal text-[11px]">
+                                      No base special
+                                    </span>
+                                  ) : calcSpecial !== null ? (
+                                    formatCurrency(calcSpecial)
+                                  ) : (
+                                    <span className="text-muted-foreground font-normal">-</span>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-2.5 align-top text-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 text-muted-foreground hover:text-destructive"
+                                onClick={() =>
+                                  setForm({
+                                    ...form,
+                                    priceTiers: form.priceTiers.filter((t) => t.key !== tier.key),
+                                  })
+                                }
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="rounded-md border border-dashed py-6 text-center text-xs text-muted-foreground">
+                  No quantity tiers added yet. Click &quot;Add Tier&quot; to configure bulk discount pricing.
                 </div>
               )}
 
               <p className="text-xs text-muted-foreground">
-                e.g. exactly 3 units at Rs. 90, exactly 6 units at Rs. 80. A tier only applies when the sale
-                quantity matches it exactly - it&apos;s not a "3 or more" threshold. Add as many or as few as
-                you need, or leave them empty for a single-price product. Each tier can set a Retail price
-                (required) plus optional Wholesale and Special prices, and cashiers can still edit the price
-                freely at checkout.
+                Enter the discount percentage for each tier. The discounted unit price is calculated in real-time
+                from the Selling Prices above. Each tier applies when the sale quantity matches it.
               </p>
             </div>
 
@@ -749,16 +943,6 @@ function ProductsPageContent() {
                 onCheckedChange={(v) => setForm({ ...form, allowDecimalQuantity: v })}
               />
             </div>
-
-            {editing && (
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <Label className="cursor-pointer">Active</Label>
-                <Switch
-                  checked={form.isActive}
-                  onCheckedChange={(v) => setForm({ ...form, isActive: v })}
-                />
-              </div>
-            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
