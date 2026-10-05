@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Package, Search, PackagePlus, X } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, Search, PackagePlus, X, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -34,6 +34,7 @@ import {
   useUpdateProduct,
 } from "@/lib/hooks/use-products";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
+import { productsApi } from "@/lib/api/products";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/format";
 import { ROLES, type ProductDto } from "@/lib/types";
@@ -279,6 +280,39 @@ function ProductsPageContent() {
 
   const isSaving = createProduct.isPending || updateProduct.isPending;
 
+  async function generateSkuForCategory(catId: string) {
+    if (!catId) return;
+    try {
+      const nextSku = await productsApi.getNextSku(catId);
+      if (nextSku) {
+        setForm((prev) => ({ ...prev, sku: nextSku }));
+        return;
+      }
+    } catch {
+      // Fallback below if backend endpoint is not yet reachable
+    }
+
+    const cat = categories.data?.find((c) => c.id === catId);
+    const raw = cat?.name?.trim().replace(/[^a-zA-Z0-9]/g, "") || "";
+    const code = (raw.length >= 2 ? raw.slice(0, 2) : raw.padEnd(2, "X")).toUpperCase();
+    const prefix = `SKU-${code}-`;
+
+    let maxNum = 0;
+    products.data?.items.forEach((p) => {
+      if (p.sku?.startsWith(prefix)) {
+        const numPart = p.sku.slice(prefix.length);
+        const parsed = parseInt(numPart, 10);
+        if (!isNaN(parsed) && parsed > maxNum) {
+          maxNum = parsed;
+        }
+      }
+    });
+
+    const nextNum = maxNum + 1;
+    const formatted = `${prefix}${String(nextNum).padStart(4, "0")}`;
+    setForm((prev) => ({ ...prev, sku: formatted }));
+  }
+
   return (
     <div>
       <PageHeader
@@ -431,8 +465,26 @@ function ProductsPageContent() {
           <form onSubmit={handleSubmit} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>SKU</Label>
-                <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} required />
+                <div className="flex items-center justify-between">
+                  <Label>SKU</Label>
+                  {!editing && form.categoryId && (
+                    <button
+                      type="button"
+                      onClick={() => generateSkuForCategory(form.categoryId)}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                      title="Re-generate SKU"
+                    >
+                      <Sparkles className="size-3" />
+                      Auto-generate
+                    </button>
+                  )}
+                </div>
+                <Input
+                  value={form.sku}
+                  placeholder={form.categoryId ? "Auto-generated SKU" : "Select category to auto-generate"}
+                  onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                  required
+                />
               </div>
               <div className="space-y-2">
                 <Label>Barcode</Label>
@@ -459,7 +511,13 @@ function ProductsPageContent() {
               <Select
                 items={categories.data?.map((c) => ({ value: c.id, label: c.name }))}
                 value={form.categoryId || null}
-                onValueChange={(v) => v && setForm({ ...form, categoryId: v })}
+                onValueChange={(v) => {
+                  if (!v) return;
+                  setForm((prev) => ({ ...prev, categoryId: v }));
+                  if (!editing) {
+                    generateSkuForCategory(v);
+                  }
+                }}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select category">

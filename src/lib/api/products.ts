@@ -34,4 +34,9 @@ export const productsApi = {
 
   adjustStock: (id: string, data: AdjustStockRequest) =>
     apiClient.post<ProductDto>(`/products/${id}/adjust-stock`, data).then((r) => r.data),
+
+  getNextSku: (categoryId: string) =>
+    apiClient
+      .get<{ sku: string }>("/products/next-sku", { params: { categoryId } })
+      .then((r) => r.data.sku),
 };
