@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Users, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, Search, Award, Gift } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { PaginationBar } from "@/components/shared/pagination-bar";
+import { CustomerLoyaltyHistoryDialog } from "@/components/customers/loyalty-history-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,6 +58,7 @@ export default function CustomersPage() {
   const [editing, setEditing] = useState<CustomerDto | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<CustomerDto | null>(null);
+  const [loyaltyTarget, setLoyaltyTarget] = useState<CustomerDto | null>(null);
 
   function openCreate() {
     setEditing(null);
@@ -165,9 +167,12 @@ export default function CustomersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
+                  <TableHead>Customer</TableHead>
                   <TableHead>Contact</TableHead>
-                  <TableHead>Loyalty Points</TableHead>
+                  <TableHead>Total Purchases</TableHead>
+                  <TableHead>Royalty Points</TableHead>
+                  <TableHead>Points Redeemed</TableHead>
+                  <TableHead>Milestone & Gifts</TableHead>
                   <TableHead>Credit Balance</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -180,7 +185,43 @@ export default function CustomersPage() {
                     <TableCell className="text-muted-foreground">
                       {customer.phone || customer.email || "—"}
                     </TableCell>
-                    <TableCell>{customer.loyaltyPoints}</TableCell>
+                    <TableCell className="font-semibold">
+                      {formatCurrency(customer.totalPurchases)}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        onClick={() => setLoyaltyTarget(customer)}
+                        className="inline-flex items-center gap-1 font-semibold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
+                        title="Click to view points history"
+                      >
+                        <Award className="size-3.5" />
+                        {customer.loyaltyPoints.toFixed(2)} pts
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {customer.loyaltyPointsRedeemed.toFixed(2)} pts
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1 items-start">
+                        {customer.milestoneTier > 0 ? (
+                          <Badge variant="outline" className="text-[11px] border-primary/30 bg-primary/5">
+                            Tier {customer.milestoneTier} ({customer.milestoneTier * 100}k)
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Below 100k</span>
+                        )}
+                        {customer.isEligibleForGift && (
+                          <button
+                            type="button"
+                            onClick={() => setLoyaltyTarget(customer)}
+                            className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 hover:bg-amber-500/25 dark:text-amber-300"
+                          >
+                            <Gift className="size-3" /> Gift Eligible
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{formatCurrency(customer.creditBalance)}</TableCell>
                     <TableCell>
                       <Badge variant={customer.isActive ? "secondary" : "outline"}>
@@ -188,6 +229,14 @@ export default function CustomersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Royalty points & ledger history"
+                        onClick={() => setLoyaltyTarget(customer)}
+                      >
+                        <Award className="size-4 text-amber-600 dark:text-amber-400" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => openEdit(customer)}>
                         <Pencil className="size-4" />
                       </Button>
@@ -285,6 +334,12 @@ export default function CustomersPage() {
         confirmLabel="Delete"
         onConfirm={handleDelete}
         loading={deleteCustomer.isPending}
+      />
+
+      <CustomerLoyaltyHistoryDialog
+        customer={loyaltyTarget}
+        open={!!loyaltyTarget}
+        onOpenChange={(o) => !o && setLoyaltyTarget(null)}
       />
     </div>
   );

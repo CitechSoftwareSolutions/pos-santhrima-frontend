@@ -50,7 +50,16 @@ export function CustomerPicker({
       >
         <span className="flex items-center gap-2 truncate text-sm">
           <User className="size-4 shrink-0 text-muted-foreground" />
-          {selected ? selected.name : "Walk-in customer"}
+          {selected ? (
+            <span className="truncate">
+              {selected.name}{" "}
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                ({selected.loyaltyPoints.toFixed(2)} pts)
+              </span>
+            </span>
+          ) : (
+            "Walk-in customer"
+          )}
         </span>
         <span className="flex items-center gap-1">
           {selected && (
@@ -93,10 +102,13 @@ export function CustomerPicker({
                     className={cn("size-4", customerId === customer.id ? "opacity-100" : "opacity-0")}
                   />
                   <div className="flex flex-col">
-                    <span>{customer.name}</span>
-                    {customer.phone && (
-                      <span className="text-xs text-muted-foreground">{customer.phone}</span>
-                    )}
+                    <span className="font-medium">{customer.name}</span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {customer.phone || "No phone"} ·{" "}
+                      <span className="text-amber-600 dark:text-amber-400 font-medium">
+                        {customer.loyaltyPoints.toFixed(2)} pts
+                      </span>
+                    </span>
                   </div>
                 </CommandItem>
               ))}

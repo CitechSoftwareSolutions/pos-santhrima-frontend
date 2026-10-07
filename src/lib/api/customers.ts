@@ -2,6 +2,7 @@ import { apiClient } from "./client";
 import type {
   CreateCustomerRequest,
   CustomerDto,
+  LoyaltyTransactionDto,
   PagedResult,
   PaginationParams,
   UpdateCustomerRequest,
@@ -21,5 +22,12 @@ export const customersApi = {
   update: (id: string, data: UpdateCustomerRequest) =>
     apiClient.put<CustomerDto>(`/customers/${id}`, data).then((r) => r.data),
 
+  claimGift: (id: string) =>
+    apiClient.post<CustomerDto>(`/customers/${id}/claim-gift`).then((r) => r.data),
+
+  getLoyaltyHistory: (id: string) =>
+    apiClient.get<LoyaltyTransactionDto[]>(`/customers/${id}/loyalty-history`).then((r) => r.data),
+
   delete: (id: string) => apiClient.delete(`/customers/${id}`).then((r) => r.data),
 };
+

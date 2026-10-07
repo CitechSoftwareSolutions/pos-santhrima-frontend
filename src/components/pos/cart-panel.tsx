@@ -1,19 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { Minus, Plus, Trash2, ShoppingCart, Tag, Pencil, X } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Minus,
+  Plus,
+  Trash2,
+  ShoppingCart,
+  Tag,
+  Pencil,
+  X,
+  Award,
+  Gift,
+  CheckCircle2,
+  Lock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { CustomerLoyaltyHistoryDialog } from "@/components/customers/loyalty-history-dialog";
 import { useActiveBill, useCartStore } from "@/store/cart-store";
+import { useClaimMilestoneGift, useCustomer } from "@/lib/hooks/use-customers";
 import { CustomerPicker } from "./customer-picker";
 import { PaymentDialog } from "./payment-dialog";
 import { calculateCartTotals, calculateLinePromotionDiscount } from "@/lib/cart-calc";
 import { describePromotion } from "@/lib/promotion-utils";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { getApiErrorMessage } from "@/lib/api/client";
 
 function BillTabs() {
   const bills = useCartStore((s) => s.bills);
@@ -87,16 +103,23 @@ function BillTabs() {
 
 export function CartPanel() {
   const activeBill = useActiveBill();
-  const { lines, customerId, discountAmount } = activeBill;
+  const { lines, customerId, discountAmount, loyaltyPointsToRedeem } = activeBill;
   const removeLine = useCartStore((s) => s.removeLine);
   const setQuantity = useCartStore((s) => s.setQuantity);
   const setUnitPrice = useCartStore((s) => s.setUnitPrice);
   const setCustomerId = useCartStore((s) => s.setCustomerId);
   const setDiscountAmount = useCartStore((s) => s.setDiscountAmount);
+  const setLoyaltyPointsToRedeem = useCartStore((s) => s.setLoyaltyPointsToRedeem);
+
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState("");
   const [quantityDraft, setQuantityDraft] = useState<{ id: string; value: string } | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const customerQuery = useCustomer(customerId);
+  const customer = customerQuery.data;
+  const claimGift = useClaimMilestoneGift();
 
   function commitPrice(lineId: string) {
     const n = parseFloat(editingPriceValue);
@@ -104,7 +127,16 @@ export function CartPanel() {
     setEditingPriceId(null);
   }
 
-  const totals = calculateCartTotals(lines, discountAmount);
+  function handleClaimGift() {
+    if (!customer) return;
+    claimGift.mutate(customer.id, {
+      onSuccess: () => toast.success("Milestone gift claimed!"),
+      onError: (err) => toast.error(getApiErrorMessage(err)),
+    });
+  }
+
+  const effectivePointsDiscount = loyaltyPointsToRedeem || 0;
+  const totals = calculateCartTotals(lines, discountAmount + effectivePointsDiscount);
 
   return (
     <div className="flex h-full flex-col rounded-xl border bg-background">
@@ -117,8 +149,68 @@ export function CartPanel() {
 
       <BillTabs />
 
-      <div className="border-b p-3">
+      <div className="border-b p-3 space-y-2">
         <CustomerPicker customerId={customerId} onChange={(c) => setCustomerId(c?.id ?? null)} />
+
+        {customer && (
+          <div className="rounded-lg border bg-amber-500/5 border-amber-500/20 p-2.5 text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-foreground flex items-center gap-1.5">
+                <Award className="size-3.5 text-amber-600 dark:text-amber-400" /> Royalty Points
+              </span>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(true)}
+                className="font-bold text-amber-700 dark:text-amber-300 hover:underline flex items-center gap-1"
+                title="View points ledger"
+              >
+                ★ {customer.loyaltyPoints.toFixed(2)} pts ({formatCurrency(customer.loyaltyPoints)})
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>
+                Purchases: <strong className="text-foreground">{formatCurrency(customer.totalPurchases)}</strong>
+              </span>
+              <span>
+                {customer.milestoneTier > 0 ? (
+                  <span className="font-medium text-primary">
+                    Tier {customer.milestoneTier} ({customer.milestoneTier * 100}k)
+                  </span>
+                ) : (
+                  "Below 100k"
+                )}
+              </span>
+            </div>
+
+            {customer.isEligibleForGift && (
+              <div className="flex items-center justify-between rounded bg-amber-500/15 p-2 text-[11px] text-amber-900 dark:text-amber-200">
+                <span className="flex items-center gap-1 font-semibold">
+                  <Gift className="size-3.5 text-amber-600" /> Milestone Gift Available!
+                </span>
+                <Button
+                  size="sm"
+                  className="h-6 px-2 text-[10px] bg-amber-600 hover:bg-amber-700 text-white"
+                  disabled={claimGift.isPending}
+                  onClick={handleClaimGift}
+                >
+                  {claimGift.isPending ? "Claiming..." : "Claim Gift"}
+                </Button>
+              </div>
+            )}
+
+            {!customer.canRedeemPoints ? (
+              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Lock className="size-3 text-muted-foreground" /> Points unlock at Rs. 100,000 purchases (
+                {formatCurrency(customer.amountToNextMilestone)} needed)
+              </div>
+            ) : (
+              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                <CheckCircle2 className="size-3" /> Points redemption unlocked (1 pt = Rs. 1)
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
@@ -244,6 +336,53 @@ export function CartPanel() {
             />
           </div>
         </div>
+
+        {customer && customer.canRedeemPoints && customer.loyaltyPoints > 0 && (
+          <div className="flex items-center justify-between text-sm text-amber-700 dark:text-amber-400">
+            <span className="flex items-center gap-1 text-xs font-medium">
+              <Award className="size-3.5 text-amber-600" />
+              Redeem Points ({customer.loyaltyPoints.toFixed(2)} available)
+            </span>
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="number"
+                min={0}
+                max={customer.loyaltyPoints}
+                step="0.01"
+                className="h-7 w-20 text-right text-xs"
+                value={loyaltyPointsToRedeem || ""}
+                placeholder="0.00"
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value) || 0;
+                  setLoyaltyPointsToRedeem(Math.min(customer.loyaltyPoints, val));
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-[10px]"
+                onClick={() => {
+                  const maxAllowed = Math.min(
+                    customer.loyaltyPoints,
+                    Math.max(0, totals.subTotal - discountAmount),
+                  );
+                  setLoyaltyPointsToRedeem(maxAllowed);
+                }}
+              >
+                Max
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {effectivePointsDiscount > 0 && (
+          <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 font-medium">
+            <span>Points Discount</span>
+            <span>-{formatCurrency(effectivePointsDiscount)}</span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Tax</span>
           <span>{formatCurrency(totals.itemTax)}</span>
@@ -264,7 +403,18 @@ export function CartPanel() {
         </Button>
       </div>
 
-      <PaymentDialog open={paymentOpen} onOpenChange={setPaymentOpen} totalAmount={totals.totalAmount} />
+      <PaymentDialog
+        open={paymentOpen}
+        onOpenChange={setPaymentOpen}
+        totalAmount={totals.totalAmount}
+      />
+
+      <CustomerLoyaltyHistoryDialog
+        customer={customer ?? null}
+        open={historyOpen}
+        onOpenChange={setHistoryOpen}
+      />
     </div>
   );
 }
+

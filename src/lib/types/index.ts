@@ -1,4 +1,5 @@
 import type {
+  LoyaltyTransactionType,
   PaymentMethod,
   PaymentStatus,
   PromotionType,
@@ -166,8 +167,31 @@ export interface CustomerDto {
   email: string | null;
   address: string | null;
   loyaltyPoints: number;
+  totalPurchases: number;
+  loyaltyPointsRedeemed: number;
+  loyaltyPointsEarned: number;
+  loyaltyPointsExpired: number;
+  milestoneTier: number;
+  milestoneGiftsClaimed: number;
+  isEligibleForGift: boolean;
+  canRedeemPoints: boolean;
+  nextMilestoneAmount: number;
+  amountToNextMilestone: number;
   creditBalance: number;
   isActive: boolean;
+}
+
+export interface LoyaltyTransactionDto {
+  id: string;
+  type: LoyaltyTransactionType;
+  points: number;
+  pointsRemaining: number;
+  expiresAt: string | null;
+  isExpired: boolean;
+  createdAt: string;
+  saleId: string | null;
+  saleNumber: string | null;
+  notes: string | null;
 }
 
 export interface CreateCustomerRequest {
@@ -224,6 +248,7 @@ export interface CreateSaleRequest {
   items: CreateSaleItemRequest[];
   payments: CreateSalePaymentRequest[];
   discountAmount?: number;
+  loyaltyPointsRedeemed?: number;
   notes?: string | null;
 }
 
@@ -263,6 +288,8 @@ export interface SaleDto {
   totalAmount: number;
   amountPaid: number;
   changeDue: number;
+  loyaltyPointsRedeemed: number;
+  loyaltyPointsEarned: number;
   status: SaleStatus;
   paymentStatus: PaymentStatus;
   notes: string | null;
