@@ -15,6 +15,7 @@ export interface Bill {
   lines: CartLine[];
   customerId: string | null;
   discountAmount: number;
+  loyaltyPointsToRedeem: number;
   notes: string;
 }
 
@@ -31,6 +32,7 @@ interface CartState {
   setLineDiscount: (lineId: string, discount: number) => void;
   setCustomerId: (customerId: string | null) => void;
   setDiscountAmount: (amount: number) => void;
+  setLoyaltyPointsToRedeem: (points: number) => void;
   setNotes: (notes: string) => void;
   clear: () => void;
 }
@@ -50,6 +52,7 @@ function newBill(): Bill {
     lines: [],
     customerId: null,
     discountAmount: 0,
+    loyaltyPointsToRedeem: 0,
     notes: "",
   };
 }
@@ -149,12 +152,22 @@ export const useCartStore = create<CartState>((set, get) => {
         lines: bill.lines.map((l) => (l.id === lineId ? { ...l, discountAmount: Math.max(0, discount) } : l)),
       })),
 
-    setCustomerId: (customerId) => updateActiveBill((bill) => ({ ...bill, customerId })),
+    setCustomerId: (customerId) =>
+      updateActiveBill((bill) => ({ ...bill, customerId, loyaltyPointsToRedeem: 0 })),
     setDiscountAmount: (amount) =>
       updateActiveBill((bill) => ({ ...bill, discountAmount: Math.max(0, amount) })),
+    setLoyaltyPointsToRedeem: (points) =>
+      updateActiveBill((bill) => ({ ...bill, loyaltyPointsToRedeem: Math.max(0, points) })),
     setNotes: (notes) => updateActiveBill((bill) => ({ ...bill, notes })),
     clear: () =>
-      updateActiveBill((bill) => ({ ...bill, lines: [], customerId: null, discountAmount: 0, notes: "" })),
+      updateActiveBill((bill) => ({
+        ...bill,
+        lines: [],
+        customerId: null,
+        discountAmount: 0,
+        loyaltyPointsToRedeem: 0,
+        notes: "",
+      })),
   };
 });
 

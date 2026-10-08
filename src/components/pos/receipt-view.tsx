@@ -54,6 +54,12 @@ export function ReceiptView({ sale }: { sale: SaleDto }) {
           <span className="text-muted-foreground">Subtotal</span>
           <span>{formatCurrency(sale.subTotal)}</span>
         </div>
+        {sale.loyaltyPointsRedeemed > 0 && (
+          <div className="flex justify-between text-amber-600 dark:text-amber-400 font-medium">
+            <span>Points Redeemed ({sale.loyaltyPointsRedeemed.toFixed(2)} pts)</span>
+            <span>-{formatCurrency(sale.loyaltyPointsRedeemed)}</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span className="text-muted-foreground">Discount</span>
           <span>-{formatCurrency(sale.discountAmount)}</span>
@@ -66,6 +72,12 @@ export function ReceiptView({ sale }: { sale: SaleDto }) {
           <span>Total</span>
           <span>{formatCurrency(sale.totalAmount)}</span>
         </div>
+        {sale.loyaltyPointsEarned > 0 && (
+          <div className="flex justify-between text-[11px] text-emerald-600 dark:text-emerald-400 font-medium pt-0.5">
+            <span>Points Earned (0.01%)</span>
+            <span>+{sale.loyaltyPointsEarned.toFixed(2)} pts</span>
+          </div>
+        )}
       </div>
 
       <Separator />

@@ -33,6 +33,14 @@ export enum PromotionType {
   FixedPriceBundle = 2,
 }
 
+export enum LoyaltyTransactionType {
+  Earned = 0,
+  Redeemed = 1,
+  Expired = 2,
+  MilestoneGiftClaimed = 3,
+  Adjustment = 4,
+}
+
 export const ROLES = {
   Admin: "Admin",
   Manager: "Manager",
@@ -40,6 +48,14 @@ export const ROLES = {
 } as const;
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
+
+export const LoyaltyTransactionTypeLabels: Record<LoyaltyTransactionType, string> = {
+  [LoyaltyTransactionType.Earned]: "Points Earned",
+  [LoyaltyTransactionType.Redeemed]: "Points Redeemed",
+  [LoyaltyTransactionType.Expired]: "Points Expired (3 Months)",
+  [LoyaltyTransactionType.MilestoneGiftClaimed]: "Milestone Gift Claimed",
+  [LoyaltyTransactionType.Adjustment]: "Manual/Void Adjustment",
+};
 
 export const SaleStatusLabels: Record<SaleStatus, string> = {
   [SaleStatus.Pending]: "Pending",

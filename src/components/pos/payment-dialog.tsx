@@ -40,7 +40,7 @@ export function PaymentDialog({
   totalAmount: number;
 }) {
   const activeBill = useActiveBill();
-  const { lines, customerId, discountAmount, notes } = activeBill;
+  const { lines, customerId, discountAmount, loyaltyPointsToRedeem, notes } = activeBill;
   const closeBill = useCartStore((s) => s.closeBill);
   const createSale = useCreateSale();
 
@@ -79,6 +79,7 @@ export function PaymentDialog({
         })),
         payments: [{ method, amount: amountPaid, referenceNumber: null }],
         discountAmount,
+        loyaltyPointsRedeemed: loyaltyPointsToRedeem || 0,
         notes: notes || null,
       },
       {
@@ -93,6 +94,8 @@ export function PaymentDialog({
     );
   }
 
+  const earnedPointsEstimate = customerId ? Math.round(totalAmount * 0.0001 * 100) / 100 : 0;
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -101,6 +104,24 @@ export function PaymentDialog({
             <DialogTitle>Take Payment</DialogTitle>
             <DialogDescription>Total due: {formatCurrency(totalAmount)}</DialogDescription>
           </DialogHeader>
+
+          {loyaltyPointsToRedeem > 0 && (
+            <div className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-800 dark:text-amber-200">
+              <span>★ Royalty Points Discount:</span>
+              <span className="font-bold">
+                -{formatCurrency(loyaltyPointsToRedeem)} ({loyaltyPointsToRedeem.toFixed(2)} pts)
+              </span>
+            </div>
+          )}
+
+          {customerId && earnedPointsEstimate > 0 && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+              <span>Points to be earned (0.01% of bill):</span>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                +{earnedPointsEstimate.toFixed(2)} pts
+              </span>
+            </div>
+          )}
 
           <div className="space-y-4">
             <div className="space-y-2">
