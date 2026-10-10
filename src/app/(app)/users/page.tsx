@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { RequireRole } from "@/components/shared/require-role";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -174,8 +175,7 @@ function UsersPageContent() {
             </div>
             <div className="space-y-2">
               <Label>Password</Label>
-              <Input
-                type="password"
+              <PasswordInput
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 minLength={8}
