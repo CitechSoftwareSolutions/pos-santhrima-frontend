@@ -66,10 +66,10 @@ interface ProductFormState {
   isActive: boolean;
 }
 
-function newTierRow(): PriceTierRow {
+function newTierRow(quantity: string = ""): PriceTierRow {
   return {
     key: crypto.randomUUID(),
-    quantity: "",
+    quantity,
     retailDiscountPercent: "",
     wholesaleDiscountPercent: "",
     specialDiscountPercent: "",
@@ -77,7 +77,8 @@ function newTierRow(): PriceTierRow {
 }
 
 function createDefaultTiers(count = 5): PriceTierRow[] {
-  return Array.from({ length: count }, () => newTierRow());
+  const defaultQuantities = ["1", "3", "6"];
+  return Array.from({ length: count }, (_, idx) => newTierRow(defaultQuantities[idx] ?? ""));
 }
 
 function calculateDiscountPrice(basePrice: number, discountPercentStr: string): number | null {
@@ -185,7 +186,9 @@ function ProductsPageContent() {
               quantity: String(t.quantity),
               retailDiscountPercent: calcPercent(product.retailPrice, t.retailPrice),
               wholesaleDiscountPercent:
-                product.wholesalePrice != null ? calcPercent(product.wholesalePrice, t.wholesalePrice) : "",
+                t.quantity !== 1 && product.wholesalePrice != null
+                  ? calcPercent(product.wholesalePrice, t.wholesalePrice)
+                  : "",
               specialDiscountPercent:
                 product.specialPrice != null ? calcPercent(product.specialPrice, t.specialPrice) : "",
             }))
@@ -218,11 +221,15 @@ function ProductsPageContent() {
     const baseSpecial =
       form.specialPrice.trim() !== "" ? parseFloat(form.specialPrice) : null;
 
-    const hasAnyTierData = (t: PriceTierRow) =>
-      t.quantity.trim() !== "" ||
-      t.retailDiscountPercent.trim() !== "" ||
-      t.wholesaleDiscountPercent.trim() !== "" ||
-      t.specialDiscountPercent.trim() !== "";
+    const hasAnyTierData = (t: PriceTierRow) => {
+      const isQtyOne = parseFloat(t.quantity) === 1;
+      return (
+        t.quantity.trim() !== "" ||
+        t.retailDiscountPercent.trim() !== "" ||
+        (!isQtyOne && t.wholesaleDiscountPercent.trim() !== "") ||
+        t.specialDiscountPercent.trim() !== ""
+      );
+    };
 
     const activeTiers = form.priceTiers.filter(hasAnyTierData);
     for (const t of activeTiers) {
@@ -240,7 +247,7 @@ function ProductsPageContent() {
         toast.error("Retail discount must be between 0% and 100%.");
         return;
       }
-      if (t.wholesaleDiscountPercent.trim() !== "") {
+      if (q !== 1 && t.wholesaleDiscountPercent.trim() !== "") {
         const wsDiscount = parseFloat(t.wholesaleDiscountPercent);
         if (isNaN(wsDiscount) || wsDiscount < 0 || wsDiscount > 100) {
           toast.error("Wholesale discount must be between 0% and 100%.");
@@ -257,11 +264,13 @@ function ProductsPageContent() {
     }
 
     const priceTiers = activeTiers.map((t) => {
+      const q = parseFloat(t.quantity);
+      const isQtyOne = q === 1;
       const retDiscount = parseFloat(t.retailDiscountPercent || "0");
       const calculatedRetail = Math.round(baseRetail * (1 - retDiscount / 100) * 100) / 100;
 
       let calculatedWholesale: number | null = null;
-      if (baseWholesale !== null && t.wholesaleDiscountPercent.trim() !== "") {
+      if (!isQtyOne && baseWholesale !== null && t.wholesaleDiscountPercent.trim() !== "") {
         const wsDiscount = parseFloat(t.wholesaleDiscountPercent);
         if (!isNaN(wsDiscount) && wsDiscount >= 0 && wsDiscount <= 100) {
           calculatedWholesale = Math.round(baseWholesale * (1 - wsDiscount / 100) * 100) / 100;
@@ -277,7 +286,7 @@ function ProductsPageContent() {
       }
 
       return {
-        quantity: parseFloat(t.quantity),
+        quantity: q,
         retailPrice: calculatedRetail,
         wholesalePrice: calculatedWholesale,
         specialPrice: calculatedSpecial,
@@ -733,12 +742,14 @@ function ProductsPageContent() {
                         const baseSpecial =
                           form.specialPrice.trim() !== "" ? parseFloat(form.specialPrice) : null;
 
+                        const isQtyOne = parseFloat(tier.quantity) === 1;
+
                         const calcRetail = calculateDiscountPrice(
                           baseRetail,
                           tier.retailDiscountPercent,
                         );
                         const calcWholesale =
-                          baseWholesale !== null
+                          !isQtyOne && baseWholesale !== null
                             ? calculateDiscountPrice(baseWholesale, tier.wholesaleDiscountPercent)
                             : null;
                         const calcSpecial =
@@ -806,20 +817,26 @@ function ProductsPageContent() {
                                     min={0}
                                     max={100}
                                     step="0.01"
-                                    placeholder={baseWholesale !== null ? "0" : "N/A"}
-                                    disabled={baseWholesale === null}
-                                    value={tier.wholesaleDiscountPercent}
+                                    placeholder={isQtyOne ? "N/A" : baseWholesale !== null ? "0" : "N/A"}
+                                    disabled={baseWholesale === null || isQtyOne}
+                                    value={isQtyOne ? "" : tier.wholesaleDiscountPercent}
                                     onChange={(e) =>
                                       updateTier({ wholesaleDiscountPercent: e.target.value })
                                     }
                                     className="h-8 pr-6 text-sm disabled:opacity-50"
                                   />
-                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
-                                    %
-                                  </span>
+                                  {!isQtyOne && (
+                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+                                      %
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                                  {baseWholesale === null ? (
+                                  {isQtyOne ? (
+                                    <span className="text-muted-foreground font-normal text-[11px]">
+                                      N/A
+                                    </span>
+                                  ) : baseWholesale === null ? (
                                     <span className="text-muted-foreground font-normal text-[11px]">
                                       No base wholesale
                                     </span>
