@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { AuthResponse, LoginRequest, RegisterRequest, UserDto } from "@/lib/types";
+import type { AuthResponse, LoginRequest, RegisterRequest, UpdateUserRequest, UserDto } from "@/lib/types";
 
 export const authApi = {
   login: (data: LoginRequest) =>
@@ -7,6 +7,12 @@ export const authApi = {
 
   register: (data: RegisterRequest) =>
     apiClient.post<AuthResponse>("/auth/register", data).then((r) => r.data),
+
+  updateUser: (id: string, data: UpdateUserRequest) =>
+    apiClient.put<UserDto>(`/auth/users/${id}`, data).then((r) => r.data),
+
+  deleteUser: (id: string) =>
+    apiClient.delete(`/auth/users/${id}`).then((r) => r.data),
 
   getUsers: () => apiClient.get<UserDto[]>("/auth/users").then((r) => r.data),
 
