@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api/auth";
 import { useAuthStore } from "@/store/auth-store";
-import type { LoginRequest, RegisterRequest } from "@/lib/types";
+import type { LoginRequest, RegisterRequest, UpdateUserRequest } from "@/lib/types";
 
 export function useLogin() {
   const router = useRouter();
@@ -40,6 +40,23 @@ export function useRegisterUser() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: RegisterRequest) => authApi.register(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  });
+}
+
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: UpdateUserRequest }) =>
+      authApi.updateUser(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  });
+}
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => authApi.deleteUser(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
   });
 }

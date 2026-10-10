@@ -50,6 +50,13 @@ export interface RegisterRequest {
   role: string;
 }
 
+export interface UpdateUserRequest {
+  fullName: string;
+  email: string;
+  password?: string;
+  role: string;
+}
+
 // ---------- Category ----------
 export interface CategoryDto {
   id: string;
