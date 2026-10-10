@@ -53,7 +53,7 @@ export function PaymentDialog({
     setPrevOpen(open);
     if (open) {
       setMethod(PaymentMethod.Cash);
-      setAmount(totalAmount > 0 ? totalAmount.toFixed(2) : "");
+      setAmount(totalAmount >= 0 ? totalAmount.toFixed(2) : "0.00");
     }
   }
 
@@ -61,12 +61,15 @@ export function PaymentDialog({
   const changeDue = Math.max(0, amountPaid - totalAmount);
 
   function handleConfirm() {
-    if (amountPaid <= 0) {
+    if (totalAmount > 0 && amountPaid <= 0) {
       toast.error("Enter a payment amount.");
       return;
     }
 
     const billId = activeBill.id;
+
+    const rawSubTotal = lines.reduce((acc, l) => acc + l.unitPrice * l.quantity, 0);
+    const safePoints = Math.min(loyaltyPointsToRedeem || 0, Math.max(0, rawSubTotal - discountAmount));
 
     createSale.mutate(
       {
@@ -79,7 +82,7 @@ export function PaymentDialog({
         })),
         payments: [{ method, amount: amountPaid, referenceNumber: null }],
         discountAmount,
-        loyaltyPointsRedeemed: loyaltyPointsToRedeem || 0,
+        loyaltyPointsRedeemed: safePoints,
         notes: notes || null,
       },
       {
@@ -94,7 +97,7 @@ export function PaymentDialog({
     );
   }
 
-  const earnedPointsEstimate = customerId ? Math.round(totalAmount * 0.0001 * 100) / 100 : 0;
+  const earnedPointsEstimate = customerId ? Math.round(totalAmount * 0.001 * 100) / 100 : 0;
 
   return (
     <>
@@ -116,7 +119,7 @@ export function PaymentDialog({
 
           {customerId && earnedPointsEstimate > 0 && (
             <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-              <span>Points to be earned (0.01% of bill):</span>
+              <span>Points to be earned (0.001 rate):</span>
               <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                 +{earnedPointsEstimate.toFixed(2)} pts
               </span>

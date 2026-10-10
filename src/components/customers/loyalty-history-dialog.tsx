@@ -44,7 +44,7 @@ export function CustomerLoyaltyHistoryDialog({
     if (!customer) return;
     claimGift.mutate(customer.id, {
       onSuccess: () => {
-        toast.success("Milestone gift successfully claimed!");
+        toast.success("Milestone gift successfully claimed! Royalty points reset to zero.");
       },
       onError: (err) => {
         toast.error(getApiErrorMessage(err));
@@ -93,7 +93,7 @@ export function CustomerLoyaltyHistoryDialog({
             </p>
             <p className="mt-1 text-base font-semibold">{formatCurrency(customer.totalPurchases)}</p>
             <p className="text-[11px] text-muted-foreground">
-              Tier {customer.milestoneTier} ({customer.milestoneTier * 100}k reached)
+              Tier {customer.milestoneTier} ({customer.milestoneTier * 75}k reached)
             </p>
           </div>
 
@@ -137,7 +137,7 @@ export function CustomerLoyaltyHistoryDialog({
             <span className="text-muted-foreground">
               {customer.canRedeemPoints
                 ? `Redemption Unlocked · Next: Rs. ${customer.nextMilestoneAmount.toLocaleString()}`
-                : `Need ${formatCurrency(customer.amountToNextMilestone)} to unlock redemption`}
+                : `Need ${formatCurrency(customer.amountToNextMilestone)} to unlock next redemption (at Rs. ${customer.nextMilestoneAmount.toLocaleString()})`}
             </span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -147,14 +147,14 @@ export function CustomerLoyaltyHistoryDialog({
                 width: `${Math.min(
                   100,
                   customer.nextMilestoneAmount > 0
-                    ? ((customer.totalPurchases % 100000) / 100000) * 100
+                    ? ((customer.totalPurchases % 75000) / 75000) * 100
                     : 100,
                 )}%`,
               }}
             />
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Points can be redeemed and milestone gifts unlocked at each Rs. 100,000 threshold.
+            Points can be redeemed and milestone gifts unlocked at each Rs. 75,000 threshold.
           </p>
         </div>
 

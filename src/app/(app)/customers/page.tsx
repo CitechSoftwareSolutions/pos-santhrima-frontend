@@ -206,10 +206,10 @@ export default function CustomersPage() {
                       <div className="flex flex-col gap-1 items-start">
                         {customer.milestoneTier > 0 ? (
                           <Badge variant="outline" className="text-[11px] border-primary/30 bg-primary/5">
-                            Tier {customer.milestoneTier} ({customer.milestoneTier * 100}k)
+                            Tier {customer.milestoneTier} ({customer.milestoneTier * 75}k)
                           </Badge>
                         ) : (
-                          <span className="text-xs text-muted-foreground">Below 100k</span>
+                          <span className="text-xs text-muted-foreground">Below 75k</span>
                         )}
                         {customer.isEligibleForGift && (
                           <button
