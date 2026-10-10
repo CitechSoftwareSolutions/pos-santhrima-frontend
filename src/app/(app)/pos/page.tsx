@@ -29,7 +29,7 @@ export default function PosPage() {
   return (
     <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
       <ProductGrid onSelect={handleSelect} />
-      <div className="h-[calc(100vh-8.5rem)] lg:sticky lg:top-0">
+      <div className="h-[calc(100vh-8.5rem)] min-h-[500px] overflow-hidden lg:sticky lg:top-0">
         <CartPanel />
       </div>
 

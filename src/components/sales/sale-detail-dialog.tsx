@@ -82,8 +82,8 @@ export function SaleDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
+      <DialogContent className="max-w-sm max-h-[90vh] flex flex-col p-4 overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="sr-only">Sale details</DialogTitle>
         </DialogHeader>
 
@@ -104,7 +104,7 @@ export function SaleDetailDialog({
               rows={3}
               autoFocus
             />
-            <DialogFooter>
+            <DialogFooter className="shrink-0">
               <Button variant="outline" onClick={() => setAction(null)}>
                 Back
               </Button>
@@ -119,19 +119,22 @@ export function SaleDetailDialog({
           </div>
         ) : (
           <>
-            <div id="receipt-print-area">
+            <div
+              id="receipt-print-area"
+              className="overflow-y-auto flex-1 max-h-[calc(88vh-6rem)] pr-1 print:max-h-none print:overflow-visible"
+            >
               <ReceiptView sale={sale.data} />
             </div>
-            <DialogFooter className="flex-wrap gap-2 print:hidden">
-              <Button variant="outline" onClick={() => window.print()}>
+            <DialogFooter className="shrink-0 pt-2 border-t flex-wrap gap-2 print:hidden">
+              <Button variant="outline" size="sm" onClick={() => window.print()}>
                 <Printer className="size-4" /> Print
               </Button>
               {canVoidOrRefund && (
                 <>
-                  <Button variant="outline" onClick={() => setAction("refund")}>
+                  <Button variant="outline" size="sm" onClick={() => setAction("refund")}>
                     <RotateCcw className="size-4" /> Refund
                   </Button>
-                  <Button variant="destructive" onClick={() => setAction("void")}>
+                  <Button variant="destructive" size="sm" onClick={() => setAction("void")}>
                     <Ban className="size-4" /> Void
                   </Button>
                 </>

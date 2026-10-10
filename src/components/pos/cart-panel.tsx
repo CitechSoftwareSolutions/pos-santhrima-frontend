@@ -130,90 +130,128 @@ export function CartPanel() {
   function handleClaimGift() {
     if (!customer) return;
     claimGift.mutate(customer.id, {
-      onSuccess: () => toast.success("Milestone gift claimed!"),
+      onSuccess: () => {
+        setLoyaltyPointsToRedeem(0);
+        toast.success("Milestone gift claimed! Royalty points reset to zero.");
+      },
       onError: (err) => toast.error(getApiErrorMessage(err)),
     });
   }
 
-  const effectivePointsDiscount = loyaltyPointsToRedeem || 0;
+  const rawSubTotal = lines.reduce((acc, l) => acc + l.unitPrice * l.quantity, 0);
+  const maxRedeemablePoints = customer?.canRedeemPoints
+    ? Math.min(customer.loyaltyPoints, Math.max(0, rawSubTotal - discountAmount))
+    : 0;
+  const effectivePointsDiscount = Math.min(loyaltyPointsToRedeem || 0, maxRedeemablePoints);
   const totals = calculateCartTotals(lines, discountAmount + effectivePointsDiscount);
 
   return (
-    <div className="flex h-full flex-col rounded-xl border bg-background">
-      <div className="flex items-center justify-between p-3 pb-0">
+    <div className="flex h-full max-h-full flex-col rounded-xl border bg-background overflow-hidden shadow-sm">
+      <div className="shrink-0 flex items-center justify-between p-3 pb-0">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
           <ShoppingCart className="size-4" /> {activeBill.label}
         </h2>
         <span className="text-xs text-muted-foreground">{lines.length} item(s)</span>
       </div>
 
-      <BillTabs />
-
-      <div className="border-b p-3 space-y-2">
-        <CustomerPicker customerId={customerId} onChange={(c) => setCustomerId(c?.id ?? null)} />
-
-        {customer && (
-          <div className="rounded-lg border bg-amber-500/5 border-amber-500/20 p-2.5 text-xs space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-foreground flex items-center gap-1.5">
-                <Award className="size-3.5 text-amber-600 dark:text-amber-400" /> Royalty Points
-              </span>
-              <button
-                type="button"
-                onClick={() => setHistoryOpen(true)}
-                className="font-bold text-amber-700 dark:text-amber-300 hover:underline flex items-center gap-1"
-                title="View points ledger"
-              >
-                ★ {customer.loyaltyPoints.toFixed(2)} pts ({formatCurrency(customer.loyaltyPoints)})
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>
-                Purchases: <strong className="text-foreground">{formatCurrency(customer.totalPurchases)}</strong>
-              </span>
-              <span>
-                {customer.milestoneTier > 0 ? (
-                  <span className="font-medium text-primary">
-                    Tier {customer.milestoneTier} ({customer.milestoneTier * 100}k)
-                  </span>
-                ) : (
-                  "Below 100k"
-                )}
-              </span>
-            </div>
-
-            {customer.isEligibleForGift && (
-              <div className="flex items-center justify-between rounded bg-amber-500/15 p-2 text-[11px] text-amber-900 dark:text-amber-200">
-                <span className="flex items-center gap-1 font-semibold">
-                  <Gift className="size-3.5 text-amber-600" /> Milestone Gift Available!
-                </span>
-                <Button
-                  size="sm"
-                  className="h-6 px-2 text-[10px] bg-amber-600 hover:bg-amber-700 text-white"
-                  disabled={claimGift.isPending}
-                  onClick={handleClaimGift}
-                >
-                  {claimGift.isPending ? "Claiming..." : "Claim Gift"}
-                </Button>
-              </div>
-            )}
-
-            {!customer.canRedeemPoints ? (
-              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <Lock className="size-3 text-muted-foreground" /> Points unlock at Rs. 100,000 purchases (
-                {formatCurrency(customer.amountToNextMilestone)} needed)
-              </div>
-            ) : (
-              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                <CheckCircle2 className="size-3" /> Points redemption unlocked (1 pt = Rs. 1)
-              </div>
-            )}
-          </div>
-        )}
+      <div className="shrink-0">
+        <BillTabs />
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
+        <div className="border-b p-3 space-y-2">
+          <CustomerPicker customerId={customerId} onChange={(c) => setCustomerId(c?.id ?? null)} />
+
+          {customer && (
+            <div className="rounded-lg border bg-amber-500/5 border-amber-500/20 p-2.5 text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                  <Award className="size-3.5 text-amber-600 dark:text-amber-400" /> Royalty Points
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen(true)}
+                  className="font-bold text-amber-700 dark:text-amber-300 hover:underline flex items-center gap-1"
+                  title="View points ledger"
+                >
+                  ★ {customer.loyaltyPoints.toFixed(2)} pts ({formatCurrency(customer.loyaltyPoints)})
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>
+                  Purchases: <strong className="text-foreground">{formatCurrency(customer.totalPurchases)}</strong>
+                </span>
+                <span>
+                  {customer.milestoneTier > 0 ? (
+                    <span className="font-medium text-primary">
+                      Tier {customer.milestoneTier} ({customer.milestoneTier * 75}k)
+                    </span>
+                  ) : (
+                    "Below 75k"
+                  )}
+                </span>
+              </div>
+
+              {customer.canRedeemPoints && customer.loyaltyPoints > 0 ? (
+                <div className="flex items-center justify-between gap-2 rounded bg-amber-500/15 p-2 text-[11px] text-amber-900 dark:text-amber-200">
+                  <div className="min-w-0">
+                    <span className="flex items-center gap-1 font-semibold text-amber-800 dark:text-amber-300">
+                      <Gift className="size-3.5 text-amber-600 shrink-0" /> Milestone Reward Available!
+                    </span>
+                    <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-0.5">
+                      {customer.loyaltyPoints.toFixed(2)} pts available (Rs. {customer.loyaltyPoints.toFixed(2)})
+                    </p>
+                  </div>
+                  {lines.length > 0 ? (
+                    <Button
+                      size="sm"
+                      type="button"
+                      className={cn(
+                        "h-6 px-2 text-[10px] shrink-0 font-medium",
+                        effectivePointsDiscount > 0
+                          ? "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                          : "bg-amber-600 hover:bg-amber-700 text-white"
+                      )}
+                      onClick={() => {
+                        if (effectivePointsDiscount > 0) {
+                          setLoyaltyPointsToRedeem(0);
+                        } else {
+                          setLoyaltyPointsToRedeem(maxRedeemablePoints);
+                        }
+                      }}
+                    >
+                      {effectivePointsDiscount > 0 ? "Remove" : "Apply to Bill"}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      type="button"
+                      className="h-6 px-2 text-[10px] bg-amber-600 hover:bg-amber-700 text-white shrink-0 font-medium"
+                      disabled={claimGift.isPending}
+                      onClick={handleClaimGift}
+                    >
+                      {claimGift.isPending ? "Claiming..." : "Claim Gift"}
+                    </Button>
+                  )}
+                </div>
+              ) : !customer.canRedeemPoints ? (
+                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Lock className="size-3 text-muted-foreground shrink-0" />
+                  <span className="truncate">
+                    Points unlock at Rs. {customer.nextMilestoneAmount.toLocaleString()} purchases (
+                    {formatCurrency(customer.amountToNextMilestone)} needed)
+                  </span>
+                </div>
+              ) : (
+                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <CheckCircle2 className="size-3 text-emerald-600 shrink-0" />
+                  <span>Next milestone unlock at Rs. {customer.nextMilestoneAmount.toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         {lines.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
             <ShoppingCart className="size-8" />
@@ -290,16 +328,16 @@ export function CartPanel() {
                       </Button>
                     </div>
                     {promotionDiscount > 0 && line.product.activePromotion && (
-                      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
-                        <Tag className="size-3" />
-                        <span>
+                      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 min-w-0">
+                        <Tag className="size-3 shrink-0" />
+                        <span className="truncate">
                           {describePromotion(line.product.activePromotion)} · -
                           {formatCurrency(promotionDiscount)}
                         </span>
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-col items-end gap-1.5">
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
                     <span className="text-sm font-semibold">{formatCurrency(lineTotal)}</span>
                     <Button
                       variant="ghost"
@@ -317,7 +355,7 @@ export function CartPanel() {
         )}
       </ScrollArea>
 
-      <div className="space-y-2 border-t p-3">
+      <div className="shrink-0 space-y-2 border-t p-3 bg-card shadow-sm">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Subtotal</span>
           <span>{formatCurrency(totals.subTotal)}</span>
@@ -337,40 +375,40 @@ export function CartPanel() {
           </div>
         </div>
 
-        {customer && customer.canRedeemPoints && customer.loyaltyPoints > 0 && (
-          <div className="flex items-center justify-between text-sm text-amber-700 dark:text-amber-400">
-            <span className="flex items-center gap-1 text-xs font-medium">
-              <Award className="size-3.5 text-amber-600" />
+        {customer && customer.canRedeemPoints && customer.loyaltyPoints > 0 && lines.length > 0 && (
+          <div className="flex items-center justify-between gap-2 text-xs text-amber-700 dark:text-amber-400">
+            <span className="flex items-center gap-1 font-medium truncate">
+              <Award className="size-3.5 text-amber-600 shrink-0" />
               Redeem Points ({customer.loyaltyPoints.toFixed(2)} available)
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <Input
                 type="number"
                 min={0}
-                max={customer.loyaltyPoints}
+                max={maxRedeemablePoints}
                 step="0.01"
                 className="h-7 w-20 text-right text-xs"
-                value={loyaltyPointsToRedeem || ""}
+                value={effectivePointsDiscount || ""}
                 placeholder="0.00"
                 onChange={(e) => {
                   const val = parseFloat(e.target.value) || 0;
-                  setLoyaltyPointsToRedeem(Math.min(customer.loyaltyPoints, val));
+                  setLoyaltyPointsToRedeem(Math.min(maxRedeemablePoints, Math.max(0, val)));
                 }}
               />
               <Button
                 type="button"
-                variant="outline"
+                variant={effectivePointsDiscount > 0 ? "secondary" : "outline"}
                 size="sm"
                 className="h-7 px-2 text-[10px]"
                 onClick={() => {
-                  const maxAllowed = Math.min(
-                    customer.loyaltyPoints,
-                    Math.max(0, totals.subTotal - discountAmount),
-                  );
-                  setLoyaltyPointsToRedeem(maxAllowed);
+                  if (effectivePointsDiscount > 0) {
+                    setLoyaltyPointsToRedeem(0);
+                  } else {
+                    setLoyaltyPointsToRedeem(maxRedeemablePoints);
+                  }
                 }}
               >
-                Max
+                {effectivePointsDiscount > 0 ? "Clear" : "Max"}
               </Button>
             </div>
           </div>
@@ -378,7 +416,7 @@ export function CartPanel() {
 
         {effectivePointsDiscount > 0 && (
           <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 font-medium">
-            <span>Points Discount</span>
+            <span>Points Discount (1 pt = Rs. 1)</span>
             <span>-{formatCurrency(effectivePointsDiscount)}</span>
           </div>
         )}
