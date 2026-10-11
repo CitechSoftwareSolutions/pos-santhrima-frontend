@@ -9,6 +9,7 @@ import {
   Receipt,
   BarChart3,
   UserCog,
+  Settings,
   Tag,
   type LucideIcon,
 } from "lucide-react";
@@ -63,4 +64,5 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [ROLES.Admin, ROLES.Manager],
   },
   { href: "/users", label: "Users", icon: UserCog, roles: [ROLES.Admin] },
+  { href: "/settings", label: "Settings", icon: Settings, roles: [ROLES.Admin] },
 ];
