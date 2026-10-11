@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useTheme } from "next-themes";
-import { Menu, Moon, Sun, LogOut, User } from "lucide-react";
+import Link from "next/link";
+import { Menu, Moon, Sun, LogOut, User, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -19,6 +20,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SidebarNav } from "./sidebar-nav";
 import { useAuthStore } from "@/store/auth-store";
 import { useLogout } from "@/lib/hooks/use-auth";
+import { ROLES } from "@/lib/types";
 
 function initials(name: string) {
   return name
@@ -89,6 +91,15 @@ export function Topbar() {
                 </div>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
+            {user?.roles.includes(ROLES.Admin) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem render={<Link href="/settings" className="flex items-center gap-2 w-full" />}>
+                  <Settings className="size-4" />
+                  Settings
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => logout()}>
               <LogOut className="size-4" />

@@ -19,6 +19,7 @@ import { useCreateSale } from "@/lib/hooks/use-sales";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/format";
 import { PaymentMethod, PaymentMethodLabels, type SaleDto } from "@/lib/types";
+import { useActiveTerminal } from "@/lib/hooks/use-active-terminal";
 import { ReceiptDialog } from "./receipt-dialog";
 
 const METHOD_OPTIONS = [
@@ -43,6 +44,7 @@ export function PaymentDialog({
   const { lines, customerId, discountAmount, loyaltyPointsToRedeem, notes } = activeBill;
   const closeBill = useCartStore((s) => s.closeBill);
   const createSale = useCreateSale();
+  const { activeTerminal } = useActiveTerminal();
 
   const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.Cash);
   const [amount, setAmount] = useState("");
@@ -84,6 +86,7 @@ export function PaymentDialog({
         discountAmount,
         loyaltyPointsRedeemed: safePoints,
         notes: notes || null,
+        terminalId: activeTerminal?.id ?? null,
       },
       {
         onSuccess: (sale) => {

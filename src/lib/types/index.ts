@@ -257,6 +257,7 @@ export interface CreateSaleRequest {
   discountAmount?: number;
   loyaltyPointsRedeemed?: number;
   notes?: string | null;
+  terminalId?: string | null;
 }
 
 export interface SaleItemDto {
@@ -288,6 +289,8 @@ export interface SaleDto {
   customerName: string | null;
   cashierId: string;
   cashierName: string;
+  terminalId: string | null;
+  terminalName: string | null;
   saleDate: string;
   subTotal: number;
   taxAmount: number;
@@ -309,6 +312,8 @@ export interface SaleListItemDto {
   saleNumber: string;
   customerName: string | null;
   cashierName: string;
+  terminalId: string | null;
+  terminalName: string | null;
   saleDate: string;
   totalAmount: number;
   status: SaleStatus;
@@ -322,6 +327,7 @@ export interface SaleQueryParams {
   dateTo?: string;
   customerId?: string;
   cashierId?: string;
+  terminalId?: string;
   status?: SaleStatus;
   search?: string;
 }
@@ -488,3 +494,99 @@ export interface UpdatePromotionRequest {
   startDate?: string | null;
   endDate?: string | null;
 }
+
+// ---------- Store Settings & Cashier Terminals ----------
+export interface StoreSettingsDto {
+  id: string;
+  loyaltyPointsEnabled: boolean;
+  loyaltyEarningRate: number;
+  loyaltyMilestoneThreshold: number;
+  loyaltyPointValue: number;
+  loyaltyPointsExpiryMonths: number;
+  loyaltyMilestoneGiftDescription: string;
+  storeName: string;
+  storeAddress: string | null;
+  storePhone: string | null;
+  receiptHeader: string;
+  receiptFooter: string;
+  defaultPaperWidth: string;
+}
+
+export interface UpdateStoreSettingsRequest {
+  loyaltyPointsEnabled: boolean;
+  loyaltyEarningRate: number;
+  loyaltyMilestoneThreshold: number;
+  loyaltyPointValue: number;
+  loyaltyPointsExpiryMonths: number;
+  loyaltyMilestoneGiftDescription: string;
+  storeName: string;
+  storeAddress: string | null;
+  storePhone: string | null;
+  receiptHeader: string;
+  receiptFooter: string;
+  defaultPaperWidth: string;
+}
+
+export interface TerminalDto {
+  id: string;
+  counterNumber: number;
+  terminalCode: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  printerType: string;
+  printerAddress: string | null;
+  paperWidth: string | null; // null inherits defaultPaperWidth
+  autoPrintReceipt: boolean;
+  autoCutPaper: boolean;
+  cashDrawerKick: boolean;
+  barcodeScannerType: string;
+  barcodeDelimiter: string;
+  barcodeMinLength: number;
+  barcodeBeepOnScan: boolean;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface CreateTerminalRequest {
+  counterNumber?: number;
+  terminalCode?: string;
+  name: string;
+  description?: string | null;
+  printerType?: string;
+  printerAddress?: string | null;
+  paperWidth?: string | null;
+  autoPrintReceipt?: boolean;
+  autoCutPaper?: boolean;
+  cashDrawerKick?: boolean;
+  barcodeScannerType?: string;
+  barcodeDelimiter?: string;
+  barcodeMinLength?: number;
+  barcodeBeepOnScan?: boolean;
+}
+
+export interface UpdateTerminalRequest {
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  printerType: string;
+  printerAddress?: string | null;
+  paperWidth?: string | null;
+  autoPrintReceipt: boolean;
+  autoCutPaper: boolean;
+  cashDrawerKick: boolean;
+  barcodeScannerType: string;
+  barcodeDelimiter: string;
+  barcodeMinLength: number;
+  barcodeBeepOnScan: boolean;
+}
+
+export interface SetTerminalCountRequest {
+  targetCount: number;
+}
+
+export interface AuthorizeSwitchRequest {
+  usernameOrEmail: string;
+  password: string;
+}
+
