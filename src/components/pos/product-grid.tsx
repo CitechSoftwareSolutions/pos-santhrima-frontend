@@ -15,7 +15,7 @@ import { productsApi } from "@/lib/api/products";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ProductDto } from "@/lib/types";
-import type { CategoryKeyBinding } from "@/lib/hotkeys/config";
+import { isTypingTarget, isAnyDialogOpen, type CategoryKeyBinding } from "@/lib/hotkeys/config";
 import { useHotkeysStore } from "@/store/hotkeys-store";
 import { toast } from "sonner";
 
@@ -100,7 +100,9 @@ export function ProductGrid({
       e.preventDefault();
       if (productItems.length > 0) {
         setFocusedProductIndex(0);
-        productButtonRefs.current[0]?.focus();
+        const targetBtn = productButtonRefs.current[0];
+        targetBtn?.focus();
+        targetBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
       }
     }
   }
@@ -113,6 +115,48 @@ export function ProductGrid({
     if (width >= 640) return 3;
     return 2;
   }, []);
+
+  // Global arrow navigation: when focus is on nothing / body / outside inputs and dialogs,
+  // pressing any arrow key immediately focuses and selects the product card!
+  useEffect(() => {
+    function handleGlobalArrow(e: KeyboardEvent) {
+      if (isTypingTarget(e.target) || isAnyDialogOpen()) return;
+
+      const isArrow =
+        e.code === "ArrowDown" ||
+        e.code === "ArrowUp" ||
+        e.code === "ArrowRight" ||
+        e.code === "ArrowLeft";
+
+      if (!isArrow) return;
+
+      // If focus is already inside a product card button, let the card's local handler manage it
+      const activeEl = document.activeElement as HTMLElement | null;
+      if (activeEl?.getAttribute("data-product-card") === "true") {
+        return;
+      }
+
+      // If user is inside cart list items, let cart navigation handle it
+      if (activeEl?.getAttribute("aria-label")?.startsWith("Cart line")) {
+        return;
+      }
+
+      if (productItems.length > 0) {
+        e.preventDefault();
+        const targetIndex =
+          focusedProductIndex >= 0 && focusedProductIndex < productItems.length
+            ? focusedProductIndex
+            : 0;
+        setFocusedProductIndex(targetIndex);
+        const targetBtn = productButtonRefs.current[targetIndex];
+        targetBtn?.focus();
+        targetBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+      }
+    }
+
+    window.addEventListener("keydown", handleGlobalArrow);
+    return () => window.removeEventListener("keydown", handleGlobalArrow);
+  }, [productItems, focusedProductIndex]);
 
   // Arrow key grid navigation
   const handleProductKeyDown = (
@@ -128,21 +172,27 @@ export function ProductGrid({
         e.preventDefault();
         const next = Math.min(count - 1, index + 1);
         setFocusedProductIndex(next);
-        productButtonRefs.current[next]?.focus();
+        const nextBtn = productButtonRefs.current[next];
+        nextBtn?.focus();
+        nextBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
         break;
       }
       case "ArrowLeft": {
         e.preventDefault();
         const prev = Math.max(0, index - 1);
         setFocusedProductIndex(prev);
-        productButtonRefs.current[prev]?.focus();
+        const prevBtn = productButtonRefs.current[prev];
+        prevBtn?.focus();
+        prevBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
         break;
       }
       case "ArrowDown": {
         e.preventDefault();
         const next = Math.min(count - 1, index + cols);
         setFocusedProductIndex(next);
-        productButtonRefs.current[next]?.focus();
+        const nextBtn = productButtonRefs.current[next];
+        nextBtn?.focus();
+        nextBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
         break;
       }
       case "ArrowUp": {
@@ -154,7 +204,9 @@ export function ProductGrid({
         } else {
           const prev = Math.max(0, index - cols);
           setFocusedProductIndex(prev);
-          productButtonRefs.current[prev]?.focus();
+          const prevBtn = productButtonRefs.current[prev];
+          prevBtn?.focus();
+          prevBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
         }
         break;
       }
@@ -227,17 +279,20 @@ export function ProductGrid({
                 return (
                   <button
                     key={product.id}
+                    data-product-card="true"
                     ref={(el) => {
                       productButtonRefs.current[index] = el;
                     }}
                     tabIndex={focusedProductIndex === index || (focusedProductIndex === -1 && index === 0) ? 0 : -1}
                     onClick={() => onSelect(product)}
+                    onFocus={() => setFocusedProductIndex(index)}
                     onKeyDown={(e) => handleProductKeyDown(e, index, product)}
                     disabled={isOutOfStock}
                     className={cn(
                       "group flex flex-col items-start gap-1 rounded-lg border bg-card p-3 text-left transition-all duration-150",
                       "hover:border-primary/50 hover:bg-accent",
                       "focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:outline-none",
+                      focusedProductIndex === index && "ring-2 ring-primary border-primary bg-accent/60 shadow-sm",
                       "disabled:cursor-not-allowed disabled:opacity-40",
                     )}
                   >
