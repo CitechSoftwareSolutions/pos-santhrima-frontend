@@ -12,9 +12,10 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useCustomers } from "@/lib/hooks/use-customers";
+import { useCustomers, useCustomer } from "@/lib/hooks/use-customers";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
+import { ShortcutHint } from "./shortcut-hint";
 import type { CustomerDto } from "@/lib/types";
 
 export function CustomerPicker({
@@ -26,26 +27,34 @@ export function CustomerPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebouncedValue(search, 250);
+  const debouncedSearch = useDebouncedValue(search, 200);
 
-  const customers = useCustomers({ search: debouncedSearch || undefined, page: 1, pageSize: 20 });
-  const selected = customers.data?.items.find((c) => c.id === customerId);
+  // Always fetch active customer by ID so it remains available regardless of current search filter
+  const singleCustomerQuery = useCustomer(customerId);
+  const customersQuery = useCustomers({ search: debouncedSearch || undefined, page: 1, pageSize: 20 });
 
-  if (customerId && !selected) {
-    return (
-      <Button variant="outline" className="w-full justify-between" disabled>
-        <span className="flex items-center gap-2 text-sm">
-          <User className="size-4" /> Selected customer
-        </span>
-      </Button>
-    );
-  }
+  const selected = singleCustomerQuery.data ?? customersQuery.data?.items.find((c) => c.id === customerId);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) {
+          setSearch("");
+        }
+      }}
+    >
       <PopoverTrigger
         render={
-          <Button variant="outline" role="combobox" className="w-full justify-between font-normal" />
+          <Button
+            id="pos-customer-picker-trigger"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            aria-keyshortcuts="c Alt+c"
+            className="w-full justify-between font-normal"
+          />
         }
       >
         <span className="flex items-center gap-2 truncate text-sm">
@@ -57,44 +66,67 @@ export function CustomerPicker({
                 ({selected.loyaltyPoints.toFixed(2)} pts)
               </span>
             </span>
+          ) : customerId && singleCustomerQuery.isLoading ? (
+            <span className="text-muted-foreground truncate">Loading customer...</span>
           ) : (
             "Walk-in customer"
           )}
         </span>
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1.5">
+          <ShortcutHint keyName="C" altKeyName="Alt+C" />
           {selected && (
-            <X
-              className="size-3.5 text-muted-foreground hover:text-foreground"
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Clear customer"
+              className="rounded-sm p-0.5 hover:bg-muted text-muted-foreground hover:text-foreground"
               onClick={(e) => {
                 e.stopPropagation();
                 onChange(null);
+                setSearch("");
               }}
-            />
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.stopPropagation();
+                  onChange(null);
+                  setSearch("");
+                }
+              }}
+            >
+              <X className="size-3.5" />
+            </span>
           )}
           <ChevronsUpDown className="size-3.5 shrink-0 opacity-50" />
         </span>
       </PopoverTrigger>
       <PopoverContent className="w-(--anchor-width) p-0" align="start">
         <Command shouldFilter={false}>
-          <CommandInput placeholder="Search customers..." value={search} onValueChange={setSearch} />
+          <CommandInput
+            placeholder="Search customers by name or phone..."
+            value={search}
+            onValueChange={setSearch}
+            autoFocus
+          />
           <CommandList>
             <CommandEmpty>No customers found.</CommandEmpty>
             <CommandGroup>
               <CommandItem
                 onSelect={() => {
                   onChange(null);
+                  setSearch("");
                   setOpen(false);
                 }}
               >
                 <Check className={cn("size-4", !customerId ? "opacity-100" : "opacity-0")} />
                 Walk-in customer
               </CommandItem>
-              {customers.data?.items.map((customer) => (
+              {customersQuery.data?.items.map((customer) => (
                 <CommandItem
                   key={customer.id}
                   value={customer.id}
                   onSelect={() => {
                     onChange(customer);
+                    setSearch("");
                     setOpen(false);
                   }}
                 >

@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Barcode, PackageX } from "lucide-react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { Search, Barcode, PackageX, Keyboard } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { CategoryChips } from "@/components/pos/category-chips";
+import { ShortcutHint } from "@/components/pos/shortcut-hint";
 import { useProducts } from "@/lib/hooks/use-products";
 import { useCategories } from "@/lib/hooks/use-categories";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
@@ -13,118 +15,276 @@ import { productsApi } from "@/lib/api/products";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ProductDto } from "@/lib/types";
+import type { CategoryKeyBinding } from "@/lib/hotkeys/config";
+import { useHotkeysStore } from "@/store/hotkeys-store";
 import { toast } from "sonner";
 
-export function ProductGrid({ onSelect }: { onSelect: (product: ProductDto) => void }) {
-  const [search, setSearch] = useState("");
-  const [categoryId, setCategoryId] = useState<string>("all");
-  const debouncedSearch = useDebouncedValue(search, 250);
+interface ProductGridProps {
+  onSelect: (product: ProductDto) => void;
+  categoryId?: string;
+  onCategoryChange?: (id: string, name: string) => void;
+  categoryBindings?: CategoryKeyBinding[];
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
+}
 
-  const categories = useCategories();
-  const products = useProducts({
+export function ProductGrid({
+  onSelect,
+  categoryId: externalCategoryId,
+  onCategoryChange,
+  categoryBindings = [],
+  searchInputRef,
+}: ProductGridProps) {
+  const [internalCategoryId, setInternalCategoryId] = useState<string>("all");
+  const categoryId = externalCategoryId ?? internalCategoryId;
+
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 150);
+
+  const localSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const activeSearchInputRef = searchInputRef ?? localSearchInputRef;
+
+  const productButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1);
+
+  const setCheatSheetOpen = useHotkeysStore((s) => s.setCheatSheetOpen);
+  const categoriesQuery = useCategories();
+  const categories = categoriesQuery.data ?? [];
+
+  const productsQuery = useProducts({
     search: debouncedSearch || undefined,
     categoryId: categoryId === "all" ? undefined : categoryId,
     isActive: true,
     page: 1,
-    pageSize: 40,
+    pageSize: 60,
   });
 
+  const productItems = useMemo(
+    () => productsQuery.data?.items ?? [],
+    [productsQuery.data?.items],
+  );
+
+  const totalCount = productsQuery.data?.totalCount ?? productItems.length;
+
+  const handleCategorySelect = useCallback(
+    (id: string, name: string) => {
+      if (onCategoryChange) {
+        onCategoryChange(id, name);
+      } else {
+        setInternalCategoryId(id);
+      }
+      toast.info(`Category: ${name} · ${totalCount} items`, { duration: 1500 });
+    },
+    [onCategoryChange, totalCount],
+  );
+
+  // Barcode scan handler
   async function handleScan(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key !== "Enter" || !search.trim()) return;
-    const product = await productsApi.lookupByCode(search.trim());
-    if (product) {
-      onSelect(product);
-      setSearch("");
-    } else {
-      toast.error(`No product found for "${search}"`);
+    if (e.key === "Enter" && search.trim()) {
+      e.preventDefault();
+      try {
+        const product = await productsApi.lookupByCode(search.trim());
+        if (product) {
+          onSelect(product);
+          setSearch("");
+        } else {
+          toast.error(`No product found for "${search}"`);
+        }
+      } catch {
+        toast.error(`Barcode scan failed for "${search}"`);
+      }
+      return;
+    }
+
+    // Move to first product card on ArrowDown from search box
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (productItems.length > 0) {
+        setFocusedProductIndex(0);
+        productButtonRefs.current[0]?.focus();
+      }
     }
   }
 
+  // Calculate dynamic grid columns
+  const getGridColumnCount = useCallback(() => {
+    if (typeof window === "undefined") return 3;
+    const width = window.innerWidth;
+    if (width >= 1280) return 4;
+    if (width >= 640) return 3;
+    return 2;
+  }, []);
+
+  // Arrow key grid navigation
+  const handleProductKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    index: number,
+    product: ProductDto,
+  ) => {
+    const cols = getGridColumnCount();
+    const count = productItems.length;
+
+    switch (e.key) {
+      case "ArrowRight": {
+        e.preventDefault();
+        const next = Math.min(count - 1, index + 1);
+        setFocusedProductIndex(next);
+        productButtonRefs.current[next]?.focus();
+        break;
+      }
+      case "ArrowLeft": {
+        e.preventDefault();
+        const prev = Math.max(0, index - 1);
+        setFocusedProductIndex(prev);
+        productButtonRefs.current[prev]?.focus();
+        break;
+      }
+      case "ArrowDown": {
+        e.preventDefault();
+        const next = Math.min(count - 1, index + cols);
+        setFocusedProductIndex(next);
+        productButtonRefs.current[next]?.focus();
+        break;
+      }
+      case "ArrowUp": {
+        e.preventDefault();
+        if (index < cols) {
+          // On the top row: move focus back up to the search input
+          activeSearchInputRef.current?.focus();
+          setFocusedProductIndex(-1);
+        } else {
+          const prev = Math.max(0, index - cols);
+          setFocusedProductIndex(prev);
+          productButtonRefs.current[prev]?.focus();
+        }
+        break;
+      }
+      case "Enter":
+      case " ": {
+        e.preventDefault();
+        onSelect(product);
+        break;
+      }
+    }
+  };
+
+  // Keep button refs array size matched
+  useEffect(() => {
+    productButtonRefs.current = productButtonRefs.current.slice(0, productItems.length);
+  }, [productItems]);
+
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="flex flex-col gap-2 sm:flex-row">
+      {/* Top Search & Category Chips */}
+      <div className="flex flex-col gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            ref={activeSearchInputRef}
             placeholder="Search products, or scan barcode + Enter"
-            className="pl-9"
+            className="pl-9 pr-16"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={handleScan}
+            aria-keyshortcuts="/ F2 Alt+s"
           />
-          <Barcode className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <div className="absolute right-3 top-1/2 flex items-center gap-1.5 -translate-y-1/2 text-muted-foreground">
+            <ShortcutHint keyName="/" altKeyName="Alt+S" />
+            <Barcode className="size-4 opacity-70" />
+          </div>
         </div>
-        <Select
-          items={[
-            { value: "all", label: "All categories" },
-            ...(categories.data?.map((c) => ({ value: c.id, label: c.name })) ?? []),
-          ]}
-          value={categoryId}
-          onValueChange={(value) => setCategoryId(value ?? "all")}
-        >
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="All categories">
-              {(val: string | null) =>
-                val === "all" || !val
-                  ? "All categories"
-                  : (categories.data?.find((c) => c.id === val)?.name ?? val)
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {categories.data?.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
+        {/* Category Chips Bar */}
+        <CategoryChips
+          categories={categories}
+          categoryBindings={categoryBindings}
+          selectedId={categoryId}
+          onSelect={handleCategorySelect}
+          resultCount={totalCount}
+        />
       </div>
 
-      <div className="flex-1 overflow-y-auto rounded-xl border bg-background p-3">
-        {products.isLoading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <Skeleton key={i} className="h-28 rounded-lg" />
-            ))}
-          </div>
-        ) : products.data && products.data.items.length > 0 ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-            {products.data.items.map((product) => (
-              <button
-                key={product.id}
-                onClick={() => onSelect(product)}
-                disabled={product.stockQuantity <= 0}
-                className={cn(
-                  "flex flex-col items-start gap-1 rounded-lg border bg-card p-3 text-left transition-colors hover:border-primary/50 hover:bg-accent",
-                  "disabled:cursor-not-allowed disabled:opacity-40",
-                )}
-              >
-                <div className="flex w-full items-start justify-between gap-2">
-                  <span className="text-sm font-medium leading-snug line-clamp-2">
-                    {product.name}
-                  </span>
-                </div>
-                <span className="text-xs text-muted-foreground">{product.sku}</span>
-                <div className="mt-1 flex w-full items-center justify-between">
-                  <span className="text-sm font-semibold">{formatCurrency(product.retailPrice)}</span>
-                  <Badge
-                    variant={product.stockQuantity <= product.reorderLevel ? "destructive" : "secondary"}
-                    className="text-[10px]"
+      {/* Product Cards Grid */}
+      <div
+        role="region"
+        aria-label="Products Grid"
+        className="flex-1 overflow-y-auto rounded-xl border bg-background p-3 flex flex-col justify-between"
+      >
+        <div>
+          {productsQuery.isLoading ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <Skeleton key={i} className="h-28 rounded-lg" />
+              ))}
+            </div>
+          ) : productItems.length > 0 ? (
+            <div
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4"
+              role="grid"
+              aria-label="Product items"
+            >
+              {productItems.map((product, index) => {
+                const isOutOfStock = product.stockQuantity <= 0;
+                return (
+                  <button
+                    key={product.id}
+                    ref={(el) => {
+                      productButtonRefs.current[index] = el;
+                    }}
+                    tabIndex={focusedProductIndex === index || (focusedProductIndex === -1 && index === 0) ? 0 : -1}
+                    onClick={() => onSelect(product)}
+                    onKeyDown={(e) => handleProductKeyDown(e, index, product)}
+                    disabled={isOutOfStock}
+                    className={cn(
+                      "group flex flex-col items-start gap-1 rounded-lg border bg-card p-3 text-left transition-all duration-150",
+                      "hover:border-primary/50 hover:bg-accent",
+                      "focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:outline-none",
+                      "disabled:cursor-not-allowed disabled:opacity-40",
+                    )}
                   >
-                    {product.stockQuantity} in stock
-                  </Badge>
-                </div>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
-            <PackageX className="size-8" />
-            <p className="text-sm">No products found.</p>
-          </div>
-        )}
+                    <div className="flex w-full items-start justify-between gap-2">
+                      <span className="text-sm font-medium leading-snug line-clamp-2">
+                        {product.name}
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{product.sku}</span>
+                    <div className="mt-auto pt-2 flex w-full items-center justify-between">
+                      <span className="text-sm font-semibold">{formatCurrency(product.retailPrice)}</span>
+                      <Badge
+                        variant={product.stockQuantity <= product.reorderLevel ? "destructive" : "secondary"}
+                        className="text-[10px]"
+                      >
+                        {product.stockQuantity} in stock
+                      </Badge>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex h-64 flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
+              <PackageX className="size-8" />
+              <p className="text-sm">No products found in this category.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Shortcut Discovery Hint */}
+        <div className="mt-3 flex items-center justify-between border-t pt-2 text-[11px] text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="font-medium text-foreground">{totalCount}</span> products found
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground gap-1.5"
+            onClick={() => setCheatSheetOpen(true)}
+          >
+            <Keyboard className="size-3" />
+            <span>Press</span>
+            <kbd className="font-mono text-[10px] px-1 py-0.2 rounded border bg-muted font-semibold">?</kbd>
+            <span>for shortcuts</span>
+          </Button>
+        </div>
       </div>
     </div>
   );
