@@ -16,6 +16,9 @@ export interface ShortcutDefinition {
 export interface HotkeysPreferences {
   shortcutsEnabled: boolean;
   showHints: boolean;
+  actionKeys?: Record<string, string>;
+  categoryKeys?: Record<string, string>;
+  priceTierKeys?: Record<string, string>;
 }
 
 export const RESERVED_CATEGORY_LETTERS = new Set(["A", "C", "D", "N", "S"]);
@@ -33,10 +36,90 @@ export interface CategoryKeyBinding {
   displayKey: string;
 }
 
+export interface ConfigurableAction {
+  id: string;
+  name: string;
+  group: ShortcutGroup;
+  description: string;
+  defaultCode: string;
+  defaultDisplay: string;
+  altDisplay?: string;
+  allowInInput: boolean;
+}
+
+export const CONFIGURABLE_ACTIONS: readonly ConfigurableAction[] = [
+  {
+    id: "search",
+    name: "Focus Product Search",
+    group: "navigation",
+    description: "Jump straight into product search bar and select text",
+    defaultCode: "Slash",
+    defaultDisplay: "/",
+    altDisplay: "Alt+S",
+    allowInInput: true,
+  },
+  {
+    id: "customer",
+    name: "Customer Selector",
+    group: "bills",
+    description: "Open customer picker and assign to active sale",
+    defaultCode: "KeyC",
+    defaultDisplay: "C",
+    altDisplay: "Alt+C",
+    allowInInput: false,
+  },
+  {
+    id: "discount",
+    name: "Bill Discount Input",
+    group: "bills",
+    description: "Focus bill discount amount input field",
+    defaultCode: "KeyD",
+    defaultDisplay: "D",
+    altDisplay: "Alt+D",
+    allowInInput: false,
+  },
+  {
+    id: "new-bill",
+    name: "New Bill Tab",
+    group: "bills",
+    description: "Create a new concurrent customer bill tab",
+    defaultCode: "KeyN",
+    defaultDisplay: "N",
+    altDisplay: "Alt+N",
+    allowInInput: true,
+  },
+  {
+    id: "charge",
+    name: "Charge / Checkout",
+    group: "bills",
+    description: "Open payment modal to complete checkout",
+    defaultCode: "F9",
+    defaultDisplay: "F9",
+    altDisplay: "Ctrl+Enter",
+    allowInInput: true,
+  },
+  {
+    id: "help",
+    name: "Cheat-Sheet Help",
+    group: "dialogs",
+    description: "Open keyboard shortcuts cheat-sheet dialog",
+    defaultCode: "Slash",
+    defaultDisplay: "?",
+    altDisplay: "Alt+H",
+    allowInInput: false,
+  },
+] as const;
+
+export const CONFIGURABLE_PRICE_TIERS = [
+  { id: "retail", name: "Retail Price Tier", defaultCode: "KeyR", defaultDisplay: "R" },
+  { id: "wholesale", name: "Wholesale Price Tier", defaultCode: "KeyW", defaultDisplay: "W" },
+  { id: "special", name: "Special Price Tier", defaultCode: "KeyS", defaultDisplay: "S" },
+] as const;
+
 /**
  * Assigns unique keyboard shortcuts to categories.
- * 1. Checks category.hotKey (Phase 3 extension point).
- * 2. Checks explicit override map (by category name or ID).
+ * 1. Checks explicit admin override map (by category name or ID).
+ * 2. Checks category.hotKey (backend / manual extension point).
  * 3. Uses first available non-reserved letter from category name.
  * 4. Falls back to available digits 1-9.
  */
@@ -50,22 +133,22 @@ export function assignCategoryKeys(
   for (const cat of categories) {
     let assignedCode: string | null = null;
 
-    // 1. Backend / manual hotKey (extension point)
-    if (cat.hotKey) {
-      const code = normalizeToKeyCode(cat.hotKey);
-      if (code && !usedCodes.has(code)) {
-        assignedCode = code;
-      }
-    }
-
-    // 2. Config override map (by id or name)
-    if (!assignedCode && overrides) {
+    // 1. Config override map (by id or name)
+    if (overrides) {
       const override = overrides[cat.id] || overrides[cat.name];
       if (override) {
         const code = normalizeToKeyCode(override);
         if (code && !usedCodes.has(code)) {
           assignedCode = code;
         }
+      }
+    }
+
+    // 2. Backend / manual hotKey (extension point)
+    if (!assignedCode && cat.hotKey) {
+      const code = normalizeToKeyCode(cat.hotKey);
+      if (code && !usedCodes.has(code)) {
+        assignedCode = code;
       }
     }
 
@@ -114,18 +197,118 @@ export function assignCategoryKeys(
 export function normalizeToKeyCode(keyOrCode: string): string | null {
   const trimmed = keyOrCode.trim();
   if (trimmed.startsWith("Key") || trimmed.startsWith("Digit")) return trimmed;
+  if (/^F[1-9]|F1[0-2]$/i.test(trimmed)) return trimmed.toUpperCase();
   if (/^[a-zA-Z]$/.test(trimmed)) return `Key${trimmed.toUpperCase()}`;
   if (/^[0-9]$/.test(trimmed)) return `Digit${trimmed}`;
+  if (trimmed === "/" || trimmed === "?") return "Slash";
+  if (trimmed === "-" || trimmed === "_") return "Minus";
+  if (trimmed === "=" || trimmed === "+") return "Equal";
+  if (trimmed === "[" || trimmed === "{") return "BracketLeft";
+  if (trimmed === "]" || trimmed === "}") return "BracketRight";
+  if (trimmed === ";" || trimmed === ":") return "Semicolon";
+  if (trimmed === "'" || trimmed === '"') return "Quote";
+  if (trimmed === "," || trimmed === "<") return "Comma";
+  if (trimmed === "." || trimmed === ">") return "Period";
+  if (trimmed === "`" || trimmed === "~") return "Backquote";
+  if (trimmed.toLowerCase() === "enter") return "Enter";
+  if (trimmed.toLowerCase() === "escape" || trimmed.toLowerCase() === "esc") return "Escape";
+  if (trimmed.toLowerCase() === "space") return "Space";
+  if (trimmed.toLowerCase() === "tab") return "Tab";
   return null;
 }
 
 export function keyCodeToDisplay(code: string): string {
   if (code.startsWith("Key")) return code.slice(3);
   if (code.startsWith("Digit")) return code.slice(5);
+  if (/^F[1-9]|F1[0-2]$/.test(code)) return code;
   if (code === "Slash") return "/";
   if (code === "Escape") return "Esc";
   if (code === "Enter") return "Enter";
+  if (code === "Space") return "Space";
+  if (code === "Tab") return "Tab";
+  if (code === "Minus") return "-";
+  if (code === "Equal") return "=";
+  if (code === "BracketLeft") return "[";
+  if (code === "BracketRight") return "]";
+  if (code === "Semicolon") return ";";
+  if (code === "Quote") return "'";
+  if (code === "Comma") return ",";
+  if (code === "Period") return ".";
+  if (code === "Backquote") return "`";
   return code;
+}
+
+export interface HotkeyConflict {
+  code: string;
+  displayKey: string;
+  usages: string[];
+}
+
+export function detectHotkeyConflicts({
+  actionKeys = {},
+  categoryKeys = {},
+  priceTierKeys = {},
+}: {
+  actionKeys?: Record<string, string>;
+  categoryKeys?: Record<string, string>;
+  priceTierKeys?: Record<string, string>;
+}): HotkeyConflict[] {
+  const codeToUsages: Record<string, string[]> = {};
+
+  const register = (code: string | undefined, label: string) => {
+    if (!code) return;
+    if (!codeToUsages[code]) codeToUsages[code] = [];
+    codeToUsages[code].push(label);
+  };
+
+  // Actions on the main POS screen
+  for (const act of CONFIGURABLE_ACTIONS) {
+    const code = actionKeys[act.id] || act.defaultCode;
+    // 'help' default is '?' (Shift+Slash), which does not conflict with bare '/'
+    if (act.id === "help" && code === "Slash") {
+      continue;
+    }
+    register(code, `Action: ${act.name}`);
+  }
+
+  // Categories on the main POS screen
+  for (const [catNameOrId, code] of Object.entries(categoryKeys)) {
+    if (code) {
+      register(code, `Category: ${catNameOrId}`);
+    }
+  }
+
+  // Price Tiers inside the Add-to-Cart dialog
+  const priceTierUsages: Record<string, string[]> = {};
+  for (const tier of CONFIGURABLE_PRICE_TIERS) {
+    const code = priceTierKeys[tier.id] || tier.defaultCode;
+    if (!priceTierUsages[code]) priceTierUsages[code] = [];
+    priceTierUsages[code].push(`Price Tier: ${tier.name}`);
+  }
+
+  const conflicts: HotkeyConflict[] = [];
+
+  for (const [code, usages] of Object.entries(codeToUsages)) {
+    if (usages.length > 1) {
+      conflicts.push({
+        code,
+        displayKey: keyCodeToDisplay(code),
+        usages,
+      });
+    }
+  }
+
+  for (const [code, usages] of Object.entries(priceTierUsages)) {
+    if (usages.length > 1) {
+      conflicts.push({
+        code,
+        displayKey: keyCodeToDisplay(code),
+        usages,
+      });
+    }
+  }
+
+  return conflicts;
 }
 
 export const GLOBAL_SHORTCUTS: ShortcutDefinition[] = [
@@ -257,18 +440,41 @@ const PREFS_STORAGE_KEY = "pos_hotkeys_preferences_v1";
 
 export function getHotkeysPreferences(): HotkeysPreferences {
   if (typeof window === "undefined") {
-    return { shortcutsEnabled: true, showHints: true };
+    return {
+      shortcutsEnabled: true,
+      showHints: true,
+      actionKeys: {},
+      categoryKeys: {},
+      priceTierKeys: {},
+    };
   }
   try {
     const raw = localStorage.getItem(PREFS_STORAGE_KEY);
-    if (!raw) return { shortcutsEnabled: true, showHints: true };
+    if (!raw) {
+      return {
+        shortcutsEnabled: true,
+        showHints: true,
+        actionKeys: {},
+        categoryKeys: {},
+        priceTierKeys: {},
+      };
+    }
     const parsed = JSON.parse(raw);
     return {
       shortcutsEnabled: parsed.shortcutsEnabled ?? true,
       showHints: parsed.showHints ?? true,
+      actionKeys: parsed.actionKeys ?? {},
+      categoryKeys: parsed.categoryKeys ?? {},
+      priceTierKeys: parsed.priceTierKeys ?? {},
     };
   } catch {
-    return { shortcutsEnabled: true, showHints: true };
+    return {
+      shortcutsEnabled: true,
+      showHints: true,
+      actionKeys: {},
+      categoryKeys: {},
+      priceTierKeys: {},
+    };
   }
 }
 

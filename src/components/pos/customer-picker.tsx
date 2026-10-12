@@ -34,6 +34,7 @@ export function CustomerPicker({
   const customersQuery = useCustomers({ search: debouncedSearch || undefined, page: 1, pageSize: 20 });
 
   const selected = singleCustomerQuery.data ?? customersQuery.data?.items.find((c) => c.id === customerId);
+  const customerKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("customer", "C"));
 
   return (
     <Popover
@@ -73,7 +74,7 @@ export function CustomerPicker({
           )}
         </span>
         <span className="flex items-center gap-1.5">
-          <ShortcutHint keyName="C" altKeyName="Alt+C" />
+          <ShortcutHint keyName={customerKeyDisplay} altKeyName={`Alt+${customerKeyDisplay}`} />
           {selected && (
             <span
               role="button"

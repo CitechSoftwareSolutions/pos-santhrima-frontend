@@ -1,6 +1,7 @@
 "use client";
 
-import { Keyboard, RotateCcw } from "lucide-react";
+import Link from "next/link";
+import { Keyboard, RotateCcw, Settings } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useHotkeysStore } from "@/store/hotkeys-store";
-import { GLOBAL_SHORTCUTS, type CategoryKeyBinding } from "@/lib/hotkeys/config";
+import { useAuthStore } from "@/store/auth-store";
+import { ROLES } from "@/lib/types";
+import { GLOBAL_SHORTCUTS, keyCodeToDisplay, type CategoryKeyBinding } from "@/lib/hotkeys/config";
+import { cn } from "@/lib/utils";
 
 interface ShortcutsDialogProps {
   categoryBindings?: CategoryKeyBinding[];
@@ -26,6 +30,25 @@ export function ShortcutsDialog({ categoryBindings = [] }: ShortcutsDialogProps)
   const showHints = useHotkeysStore((s) => s.showHints);
   const setShowHints = useHotkeysStore((s) => s.setShowHints);
   const resetPreferences = useHotkeysStore((s) => s.resetPreferences);
+  const actionKeys = useHotkeysStore((s) => s.actionKeys);
+  const isAdmin = useAuthStore((s) => s.hasRole(ROLES.Admin));
+
+  function resolveShortcut(s: (typeof GLOBAL_SHORTCUTS)[number]) {
+    const customCode = actionKeys[s.id];
+    if (customCode) {
+      const display = keyCodeToDisplay(customCode);
+      return {
+        keyDisplay: display,
+        altDisplay: s.altDisplay ? `Alt+${display}` : undefined,
+        isCustom: true,
+      };
+    }
+    return {
+      keyDisplay: s.keyDisplay,
+      altDisplay: s.altDisplay,
+      isCustom: false,
+    };
+  }
 
   const searchAndNav = GLOBAL_SHORTCUTS.filter((s) => s.group === "navigation");
   const billsAndCheckout = GLOBAL_SHORTCUTS.filter((s) => s.group === "bills");
@@ -77,15 +100,28 @@ export function ShortcutsDialog({ categoryBindings = [] }: ShortcutsDialogProps)
             </div>
           </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
-            onClick={resetPreferences}
-          >
-            <RotateCcw className="size-3" />
-            Reset to defaults
-          </Button>
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5 border-primary/40 text-primary hover:bg-primary/10 font-medium"
+                render={<Link href="/settings?tab=shortcuts" onClick={() => setOpen(false)} />}
+              >
+                <Settings className="size-3" />
+                Configure in Settings
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
+              onClick={resetPreferences}
+            >
+              <RotateCcw className="size-3" />
+              Reset to defaults
+            </Button>
+          </div>
         </div>
 
         {/* Tip banner */}
@@ -134,24 +170,34 @@ export function ShortcutsDialog({ categoryBindings = [] }: ShortcutsDialogProps)
           <div className="space-y-2 rounded-lg border p-3 bg-card/60">
             <h3 className="font-semibold text-foreground border-b pb-1">Search & Grid Navigation</h3>
             <div className="space-y-1.5">
-              {searchAndNav.map((s) => (
-                <div key={s.id} className="flex items-center justify-between py-0.5">
-                  <div className="flex flex-col">
-                    <span className="font-medium text-foreground">{s.label}</span>
-                    <span className="text-[10px] text-muted-foreground">{s.description}</span>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold">
-                      {s.keyDisplay}
-                    </kbd>
-                    {s.altDisplay && (
-                      <kbd className="rounded border bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
-                        {s.altDisplay}
+              {searchAndNav.map((s) => {
+                const res = resolveShortcut(s);
+                return (
+                  <div key={s.id} className="flex items-center justify-between py-0.5">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-foreground">{s.label}</span>
+                      <span className="text-[10px] text-muted-foreground">{s.description}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <kbd
+                        className={cn(
+                          "rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold",
+                          res.isCustom
+                            ? "bg-primary/15 text-primary border-primary/40"
+                            : "bg-muted"
+                        )}
+                      >
+                        {res.keyDisplay}
                       </kbd>
-                    )}
+                      {res.altDisplay && (
+                        <kbd className="rounded border bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+                          {res.altDisplay}
+                        </kbd>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -159,24 +205,34 @@ export function ShortcutsDialog({ categoryBindings = [] }: ShortcutsDialogProps)
           <div className="space-y-2 rounded-lg border p-3 bg-card/60">
             <h3 className="font-semibold text-foreground border-b pb-1">Bills & Checkout</h3>
             <div className="space-y-1.5">
-              {billsAndCheckout.map((s) => (
-                <div key={s.id} className="flex items-center justify-between py-0.5">
-                  <div className="flex flex-col">
-                    <span className="font-medium text-foreground">{s.label}</span>
-                    <span className="text-[10px] text-muted-foreground">{s.description}</span>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold">
-                      {s.keyDisplay}
-                    </kbd>
-                    {s.altDisplay && s.altDisplay !== s.keyDisplay && (
-                      <kbd className="rounded border bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
-                        {s.altDisplay}
+              {billsAndCheckout.map((s) => {
+                const res = resolveShortcut(s);
+                return (
+                  <div key={s.id} className="flex items-center justify-between py-0.5">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-foreground">{s.label}</span>
+                      <span className="text-[10px] text-muted-foreground">{s.description}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <kbd
+                        className={cn(
+                          "rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold",
+                          res.isCustom
+                            ? "bg-primary/15 text-primary border-primary/40"
+                            : "bg-muted"
+                        )}
+                      >
+                        {res.keyDisplay}
                       </kbd>
-                    )}
+                      {res.altDisplay && res.altDisplay !== res.keyDisplay && (
+                        <kbd className="rounded border bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+                          {res.altDisplay}
+                        </kbd>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

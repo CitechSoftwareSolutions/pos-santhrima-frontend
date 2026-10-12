@@ -26,6 +26,8 @@ import {
 import { describePromotion, calculatePromotionDiscount } from "@/lib/promotion-utils";
 import { cn } from "@/lib/utils";
 import type { ProductDto } from "@/lib/types";
+import { useHotkeysStore } from "@/store/hotkeys-store";
+import { keyCodeToDisplay } from "@/lib/hotkeys/config";
 
 const PRICE_KINDS: PriceKind[] = ["retail", "wholesale", "special"];
 
@@ -56,6 +58,17 @@ function AddToCartForm({
   const stepVal = product.allowDecimalQuantity ? 0.1 : 1;
   const step = product.allowDecimalQuantity ? "0.1" : "1";
   const minQty = product.allowDecimalQuantity ? 0.01 : 1;
+
+  const priceTierKeys = useHotkeysStore((s) => s.priceTierKeys);
+  const retailCode = priceTierKeys["retail"] || "KeyR";
+  const wholesaleCode = priceTierKeys["wholesale"] || "KeyW";
+  const specialCode = priceTierKeys["special"] || "KeyS";
+
+  const dynamicShortcuts: Record<PriceKind, { code: string; display: string }> = {
+    retail: { code: retailCode, display: keyCodeToDisplay(retailCode) },
+    wholesale: { code: wholesaleCode, display: keyCodeToDisplay(wholesaleCode) },
+    special: { code: specialCode, display: keyCodeToDisplay(specialCode) },
+  };
 
   // Auto-focus and select contents on mount
   useEffect(() => {
@@ -131,10 +144,10 @@ function AddToCartForm({
       return;
     }
 
-    // Price kind switching: R, W, S (bare or Alt+letter)
+    // Price kind switching: R, W, S (bare or Alt+letter) or custom configured keys
     if (showPriceKindPicker) {
       for (const kind of PRICE_KINDS) {
-        const item = KIND_SHORTCUTS[kind];
+        const item = dynamicShortcuts[kind];
         if (
           (e.code === item.code && (e.altKey || (!e.ctrlKey && !e.metaKey && document.activeElement !== quantityInputRef.current)))
         ) {
@@ -218,7 +231,7 @@ function AddToCartForm({
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {PRICE_KINDS.map((kind) => {
-              const sc = KIND_SHORTCUTS[kind];
+              const sc = dynamicShortcuts[kind];
               return (
                 <button
                   key={kind}

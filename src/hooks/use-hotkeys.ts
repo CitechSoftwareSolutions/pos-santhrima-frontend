@@ -88,11 +88,19 @@ export function usePosHotkeys({
       const opts = optionsRef.current;
       const dialogOpen = isAnyDialogOpen();
       const inInput = isTypingTarget(e.target);
+      const actionKeys = useHotkeysStore.getState().actionKeys;
+      const customHelp = actionKeys["help"];
+      const customSearch = actionKeys["search"];
+      const customCustomer = actionKeys["customer"] || "KeyC";
+      const customDiscount = actionKeys["discount"] || "KeyD";
+      const customNewBill = actionKeys["new-bill"] || "KeyN";
+      const customCharge = actionKeys["charge"] || "F9";
 
-      // Cheat-sheet shortcut: '?' (Shift + Slash) or 'Alt+H'
+      // Cheat-sheet shortcut: '?' (Shift + Slash), 'Alt+H', or configured help key
       if (
         (e.code === "Slash" && e.shiftKey && !e.ctrlKey && !e.metaKey && !inInput && !dialogOpen) ||
-        (e.code === "KeyH" && e.altKey && !e.ctrlKey && !e.metaKey)
+        (e.code === "KeyH" && e.altKey && !e.ctrlKey && !e.metaKey) ||
+        (customHelp && (e.code === customHelp && (e.altKey || (!inInput && !dialogOpen && !e.ctrlKey && !e.metaKey))))
       ) {
         e.preventDefault();
         setCheatSheetOpen(true);
@@ -121,39 +129,46 @@ export function usePosHotkeys({
         }
       }
 
-      // Universal Product Search Focus: '/' or 'F2' or 'Alt+S'
+      // Universal Product Search Focus: '/' or 'F2' or 'Alt+S' or custom search key
       if (
         (e.code === "Slash" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && !inInput && !dialogOpen) ||
         (e.code === "F2" && !e.ctrlKey && !e.metaKey) ||
-        (e.code === "KeyS" && e.altKey && !e.ctrlKey && !e.metaKey)
+        (e.code === "KeyS" && e.altKey && !e.ctrlKey && !e.metaKey) ||
+        (customSearch && (
+          (e.code === customSearch && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && !inInput && !dialogOpen) ||
+          (e.code === customSearch && e.altKey && !e.ctrlKey && !e.metaKey)
+        ))
       ) {
         e.preventDefault();
         opts.onFocusSearch?.();
         return;
       }
 
-      // Customer Selector: 'C' (bare key) or 'Alt+C'
+      // Customer Selector: 'KeyC' (bare or Alt+C) or custom key
       if (
-        (e.code === "KeyC" && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !inInput && !dialogOpen) ||
-        (e.code === "KeyC" && e.altKey && !e.ctrlKey && !e.metaKey)
+        (e.code === customCustomer && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !inInput && !dialogOpen) ||
+        (e.code === customCustomer && e.altKey && !e.ctrlKey && !e.metaKey)
       ) {
         e.preventDefault();
         opts.onFocusCustomer?.();
         return;
       }
 
-      // Discount Field: 'D' (bare key) or 'Alt+D'
+      // Discount Field: 'KeyD' (bare or Alt+D) or custom key
       if (
-        (e.code === "KeyD" && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !inInput && !dialogOpen) ||
-        (e.code === "KeyD" && e.altKey && !e.ctrlKey && !e.metaKey)
+        (e.code === customDiscount && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !inInput && !dialogOpen) ||
+        (e.code === customDiscount && e.altKey && !e.ctrlKey && !e.metaKey)
       ) {
         e.preventDefault();
         opts.onFocusDiscount?.();
         return;
       }
 
-      // New Bill Tab: 'Alt+N'
-      if (e.code === "KeyN" && e.altKey && !e.ctrlKey && !e.metaKey) {
+      // New Bill Tab: 'Alt+N' or custom key (with Alt or bare)
+      if (
+        (e.code === customNewBill && e.altKey && !e.ctrlKey && !e.metaKey) ||
+        (customNewBill !== "KeyN" && e.code === customNewBill && !inInput && !dialogOpen && !e.ctrlKey && !e.metaKey)
+      ) {
         e.preventDefault();
         opts.onNewBill?.();
         toast.info("Created new bill tab");
@@ -168,9 +183,9 @@ export function usePosHotkeys({
         return;
       }
 
-      // Charge / Checkout: 'F9' or 'Ctrl+Enter'
+      // Charge / Checkout: 'F9', 'Ctrl+Enter', or custom charge key
       if (
-        (e.code === "F9" && !e.ctrlKey && !e.metaKey) ||
+        (e.code === customCharge && !e.ctrlKey && !e.metaKey) ||
         (e.code === "Enter" && (e.ctrlKey || e.metaKey))
       ) {
         e.preventDefault();

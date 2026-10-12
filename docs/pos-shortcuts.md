@@ -72,9 +72,19 @@ This guide describes the keyboard shortcuts available on the Point of Sale (`/po
 | <kbd>?</kbd> | <kbd>Alt</kbd> + <kbd>H</kbd> | Open this Keyboard Shortcuts Cheat-Sheet |
 | <kbd>Esc</kbd> | — | Close Cheat-Sheet / Dialogs |
 
+### 7. Super Admin & Admin Key Press Customization
+Administrators can customize any of these key presses directly in **Settings → POS Shortcuts & Key Presses** (`/settings?tab=shortcuts`):
+- **Core Actions:** Reassign keys for Product Search, Customer Picker, Discount Field, New Bill, and Charge / Checkout.
+- **Category Department Keys:** Override default letter assignments for each store category (A–Z, 1–9).
+- **Price Tier Keys:** Reassign quick keys for Retail, Wholesale, and Special pricing in the Add-to-Cart dialog.
+- **Physical Key Recorder:** Click "Change Key" on any action, press any key on the physical keyboard, and it captures the layout-independent hardware code (`event.code`).
+- **Conflict Prevention:** Real-time conflict engine alerts you if two actions or categories share the same key before saving.
+- **Workstation Sync:** Changes saved to Store Settings automatically propagate across all connected counter terminals.
+
 ---
 
 ## 💡 Cashier Tips
 - **Fast Flow:** <kbd>/</kbd> (type product) → <kbd>↓</kbd> → <kbd>Enter</kbd> → (type quantity) → <kbd>Enter</kbd> → <kbd>F9</kbd> (charge).
 - **Hold <kbd>Alt</kbd>:** Whenever in doubt, press and hold <kbd>Alt</kbd> to see all available shortcut badges brighten on screen.
 - **Toggle Hints:** In the cheat-sheet (<kbd>?</kbd>), you can toggle shortcut badge visibility on or off based on personal preference.
+- **Custom Keys:** Check with your Store Administrator if key presses have been customized for your store's specific workflow.

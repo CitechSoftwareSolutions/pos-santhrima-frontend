@@ -47,6 +47,7 @@ export function ProductGrid({
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1);
 
   const setCheatSheetOpen = useHotkeysStore((s) => s.setCheatSheetOpen);
+  const searchKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("search", "/"));
   const categoriesQuery = useCategories();
   const categories = categoriesQuery.data ?? [];
 
@@ -240,7 +241,7 @@ export function ProductGrid({
             aria-keyshortcuts="/ F2 Alt+s"
           />
           <div className="absolute right-3 top-1/2 flex items-center gap-1.5 -translate-y-1/2 text-muted-foreground">
-            <ShortcutHint keyName="/" altKeyName="Alt+S" />
+            <ShortcutHint keyName={searchKeyDisplay} altKeyName="Alt+S" />
             <Barcode className="size-4 opacity-70" />
           </div>
         </div>

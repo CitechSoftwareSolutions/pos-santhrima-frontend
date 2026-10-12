@@ -32,15 +32,24 @@ export default function PosPage() {
   const [categoryId, setCategoryId] = useState<string>("all");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  const { activeTerminal, hasNoStoredTerminal, effectivePaperWidth } = useActiveTerminal();
+  const { activeTerminal, storeSettings, hasNoStoredTerminal, effectivePaperWidth } = useActiveTerminal();
   const [switchCounterOpen, setSwitchCounterOpen] = useState(false);
   const [hardwareTestOpen, setHardwareTestOpen] = useState(false);
 
-  // Fetch categories & calculate dynamic key bindings
+  const categoryKeys = useHotkeysStore((s) => s.categoryKeys);
+  const syncFromStoreSettings = useHotkeysStore((s) => s.syncFromStoreSettings);
+
+  useEffect(() => {
+    if (storeSettings?.hotkeyBindingsJson) {
+      syncFromStoreSettings(storeSettings.hotkeyBindingsJson);
+    }
+  }, [storeSettings?.hotkeyBindingsJson, syncFromStoreSettings]);
+
+  // Fetch categories & calculate dynamic key bindings with configured admin overrides
   const categoriesQuery = useCategories();
   const categoryBindings = useMemo(
-    () => assignCategoryKeys(categoriesQuery.data ?? []),
-    [categoriesQuery.data],
+    () => assignCategoryKeys(categoriesQuery.data ?? [], categoryKeys),
+    [categoriesQuery.data, categoryKeys],
   );
 
   const handleCategoryChange = useCallback((id: string, name: string) => {

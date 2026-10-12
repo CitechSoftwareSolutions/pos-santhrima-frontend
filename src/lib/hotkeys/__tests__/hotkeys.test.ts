@@ -2,7 +2,9 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   assignCategoryKeys,
+  detectHotkeyConflicts,
   isTypingTarget,
+  keyCodeToDisplay,
   normalizeToKeyCode,
   RESERVED_CATEGORY_LETTERS,
   type CategoryLike,
@@ -249,5 +251,46 @@ describe("Key-matching logic (event.code, modifiers, two layers)", () => {
       matchesKeyEvent(normalEnter, "Enter", { requiresCtrl: true, allowInInput: true }),
       false,
     );
+  });
+});
+
+describe("Admin Hotkey Configuration & Conflict Detection", () => {
+  it("converts function keys, symbols, and letters correctly in keyCodeToDisplay and normalizeToKeyCode", () => {
+    assert.equal(keyCodeToDisplay("KeyC"), "C");
+    assert.equal(keyCodeToDisplay("F9"), "F9");
+    assert.equal(keyCodeToDisplay("F2"), "F2");
+    assert.equal(keyCodeToDisplay("Slash"), "/");
+    assert.equal(keyCodeToDisplay("Escape"), "Esc");
+    assert.equal(keyCodeToDisplay("Digit5"), "5");
+
+    assert.equal(normalizeToKeyCode("f9"), "F9");
+    assert.equal(normalizeToKeyCode("f12"), "F12");
+    assert.equal(normalizeToKeyCode("/"), "Slash");
+    assert.equal(normalizeToKeyCode("k"), "KeyK");
+    assert.equal(normalizeToKeyCode("7"), "Digit7");
+  });
+
+  it("detects key conflicts when an action or category shares the same key", () => {
+    // Both Customer and Category mapped to KeyC
+    const conflicts = detectHotkeyConflicts({
+      actionKeys: { customer: "KeyC" },
+      categoryKeys: { "Beverages": "KeyC" },
+      priceTierKeys: {},
+    });
+
+    assert.equal(conflicts.length, 1);
+    assert.equal(conflicts[0].code, "KeyC");
+    assert.equal(conflicts[0].displayKey, "C");
+    assert.equal(conflicts[0].usages.length, 2);
+  });
+
+  it("reports no conflicts when all keys are unique", () => {
+    const conflicts = detectHotkeyConflicts({
+      actionKeys: { customer: "KeyC", discount: "KeyD", charge: "F9" },
+      categoryKeys: { "Bakery": "KeyB", "Beverages": "KeyV" },
+      priceTierKeys: { retail: "KeyR" },
+    });
+
+    assert.equal(conflicts.length, 0);
   });
 });

@@ -514,6 +514,7 @@ export interface StoreSettingsDto {
   receiptHeader: string;
   receiptFooter: string;
   defaultPaperWidth: string;
+  hotkeyBindingsJson?: string | null;
 }
 
 export interface UpdateStoreSettingsRequest {
@@ -529,6 +530,7 @@ export interface UpdateStoreSettingsRequest {
   receiptHeader: string;
   receiptFooter: string;
   defaultPaperWidth: string;
+  hotkeyBindingsJson?: string | null;
 }
 
 export interface TerminalDto {

@@ -31,6 +31,7 @@ import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { ShortcutHint } from "./shortcut-hint";
+import { useHotkeysStore } from "@/store/hotkeys-store";
 
 function BillTabs() {
   const bills = useCartStore((s) => s.bills);
@@ -38,6 +39,7 @@ function BillTabs() {
   const addBill = useCartStore((s) => s.addBill);
   const switchBill = useCartStore((s) => s.switchBill);
   const closeBill = useCartStore((s) => s.closeBill);
+  const newBillDisplay = useHotkeysStore((s) => s.getActionDisplay("new-bill", "N"));
   const [closeTarget, setCloseTarget] = useState<string | null>(null);
 
   const targetBill = bills.find((b) => b.id === closeTarget) ?? null;
@@ -89,11 +91,11 @@ function BillTabs() {
           size="sm"
           className="h-7 px-2 shrink-0 gap-1 text-xs"
           onClick={addBill}
-          title="New bill (Alt+N)"
-          aria-keyshortcuts="Alt+n"
+          title={`New bill (Alt+${newBillDisplay})`}
+          aria-keyshortcuts={`Alt+${newBillDisplay.toLowerCase()}`}
         >
           <Plus className="size-3.5" />
-          <ShortcutHint keyName="Alt+N" />
+          <ShortcutHint keyName={`Alt+${newBillDisplay}`} />
         </Button>
       </div>
 
@@ -155,6 +157,8 @@ export function CartPanel() {
     : 0;
   const effectivePointsDiscount = Math.min(loyaltyPointsToRedeem || 0, maxRedeemablePoints);
   const totals = calculateCartTotals(lines, discountAmount + effectivePointsDiscount);
+  const discountKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("discount", "D"));
+  const chargeKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("charge", "F9"));
 
   return (
     <div className="flex h-full max-h-full flex-col rounded-xl border bg-background overflow-hidden shadow-sm">
@@ -403,7 +407,7 @@ export function CartPanel() {
         </div>
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground flex items-center gap-1.5">
-            Discount <ShortcutHint keyName="D" altKeyName="Alt+D" />
+            Discount <ShortcutHint keyName={discountKeyDisplay} altKeyName={`Alt+${discountKeyDisplay}`} />
           </span>
           <div className="flex items-center gap-2">
             <Input
@@ -485,7 +489,7 @@ export function CartPanel() {
           aria-keyshortcuts="F9 Control+Enter"
         >
           <span>Charge {formatCurrency(totals.totalAmount)}</span>
-          <ShortcutHint keyName="F9" altKeyName="Ctrl+Enter" />
+          <ShortcutHint keyName={chargeKeyDisplay} altKeyName="Ctrl+Enter" />
         </Button>
       </div>
 
