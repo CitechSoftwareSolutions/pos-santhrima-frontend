@@ -534,17 +534,26 @@ function SettingsContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 max-w-2xl h-auto p-1 gap-1">
-          <TabsTrigger value="loyalty" className="gap-2 py-2">
-            <Award className="size-4" />
+        <TabsList className="inline-flex h-auto w-fit max-w-full flex-wrap items-center justify-start gap-1.5 rounded-xl bg-muted/80 p-1.5 border border-border/50 shadow-xs">
+          <TabsTrigger
+            value="loyalty"
+            className="gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium transition-all data-active:bg-background data-active:text-foreground data-active:shadow-sm"
+          >
+            <Award className="size-4 shrink-0" />
             Loyalty & Store Policy
           </TabsTrigger>
-          <TabsTrigger value="terminals" className="gap-2 py-2">
-            <Monitor className="size-4" />
+          <TabsTrigger
+            value="terminals"
+            className="gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium transition-all data-active:bg-background data-active:text-foreground data-active:shadow-sm"
+          >
+            <Monitor className="size-4 shrink-0" />
             Cashier Counters & Hardware
           </TabsTrigger>
-          <TabsTrigger value="shortcuts" className="gap-2 py-2">
-            <Keyboard className="size-4" />
+          <TabsTrigger
+            value="shortcuts"
+            className="gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium transition-all data-active:bg-background data-active:text-foreground data-active:shadow-sm"
+          >
+            <Keyboard className="size-4 shrink-0" />
             POS Shortcuts & Key Presses
           </TabsTrigger>
         </TabsList>
