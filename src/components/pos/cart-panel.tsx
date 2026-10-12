@@ -30,6 +30,8 @@ import { describePromotion } from "@/lib/promotion-utils";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api/client";
+import { ShortcutHint } from "./shortcut-hint";
+import { useHotkeysStore } from "@/store/hotkeys-store";
 
 function BillTabs() {
   const bills = useCartStore((s) => s.bills);
@@ -37,6 +39,7 @@ function BillTabs() {
   const addBill = useCartStore((s) => s.addBill);
   const switchBill = useCartStore((s) => s.switchBill);
   const closeBill = useCartStore((s) => s.closeBill);
+  const newBillDisplay = useHotkeysStore((s) => s.getActionDisplay("new-bill", "N"));
   const [closeTarget, setCloseTarget] = useState<string | null>(null);
 
   const targetBill = bills.find((b) => b.id === closeTarget) ?? null;
@@ -44,19 +47,21 @@ function BillTabs() {
   return (
     <>
       <div className="flex items-center gap-1.5 overflow-x-auto border-b bg-muted/30 p-2">
-        {bills.map((bill) => (
+        {bills.map((bill, index) => (
           <button
             key={bill.id}
             type="button"
             onClick={() => switchBill(bill.id)}
+            aria-keyshortcuts={index < 9 ? `Alt+${index + 1}` : undefined}
             className={cn(
               "group flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors",
               bill.id === activeBillId
-                ? "border-primary bg-background text-foreground"
+                ? "border-primary bg-background text-foreground ring-1 ring-primary/40 font-semibold"
                 : "border-transparent text-muted-foreground hover:bg-background/60",
             )}
           >
             {bill.label}
+            {index < 9 && <ShortcutHint keyName={`Alt+${index + 1}`} />}
             {bill.lines.length > 0 && (
               <span className="rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">
                 {bill.lines.length}
@@ -81,8 +86,16 @@ function BillTabs() {
             )}
           </button>
         ))}
-        <Button variant="ghost" size="icon" className="size-7 shrink-0" onClick={addBill} title="New bill">
-          <Plus className="size-4" />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 shrink-0 gap-1 text-xs"
+          onClick={addBill}
+          title={`New bill (Alt+${newBillDisplay})`}
+          aria-keyshortcuts={`Alt+${newBillDisplay.toLowerCase()}`}
+        >
+          <Plus className="size-3.5" />
+          <ShortcutHint keyName={`Alt+${newBillDisplay}`} />
         </Button>
       </div>
 
@@ -144,6 +157,8 @@ export function CartPanel() {
     : 0;
   const effectivePointsDiscount = Math.min(loyaltyPointsToRedeem || 0, maxRedeemablePoints);
   const totals = calculateCartTotals(lines, discountAmount + effectivePointsDiscount);
+  const discountKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("discount", "D"));
+  const chargeKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("charge", "F9"));
 
   return (
     <div className="flex h-full max-h-full flex-col rounded-xl border bg-background overflow-hidden shadow-sm">
@@ -266,7 +281,37 @@ export function CartPanel() {
               const isEditingPrice = editingPriceId === line.id;
 
               return (
-                <div key={line.id} className="flex items-start gap-2 p-3">
+                <div
+                  key={line.id}
+                  tabIndex={0}
+                  aria-label={`Cart line ${line.product.name}`}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return; // Only when container is focused
+                    if (e.key === "Delete") {
+                      e.preventDefault();
+                      removeLine(line.id);
+                    } else if (e.key === "+" || e.key === "=") {
+                      e.preventDefault();
+                      if (line.quantity < line.product.stockQuantity) {
+                        setQuantity(line.id, line.quantity + step);
+                      }
+                    } else if (e.key === "-") {
+                      e.preventDefault();
+                      if (line.quantity > step) {
+                        setQuantity(line.id, line.quantity - step);
+                      }
+                    } else if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      const next = e.currentTarget.nextElementSibling as HTMLElement | null;
+                      next?.focus();
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      const prev = e.currentTarget.previousElementSibling as HTMLElement | null;
+                      prev?.focus();
+                    }
+                  }}
+                  className="flex items-start gap-2 p-3 transition-colors focus-visible:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 rounded-md"
+                >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{line.product.name}</p>
                     {isEditingPrice ? (
@@ -361,12 +406,16 @@ export function CartPanel() {
           <span>{formatCurrency(totals.subTotal)}</span>
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Discount</span>
+          <span className="text-muted-foreground flex items-center gap-1.5">
+            Discount <ShortcutHint keyName={discountKeyDisplay} altKeyName={`Alt+${discountKeyDisplay}`} />
+          </span>
           <div className="flex items-center gap-2">
             <Input
+              id="pos-discount-input"
               type="number"
               min={0}
               step="0.01"
+              aria-keyshortcuts="d Alt+d"
               className="h-7 w-24 text-right text-xs"
               value={discountAmount || ""}
               placeholder="0.00"
@@ -432,12 +481,15 @@ export function CartPanel() {
         </div>
 
         <Button
-          className="w-full"
+          id="pos-charge-button"
+          className="w-full gap-2"
           size="lg"
           disabled={lines.length === 0}
           onClick={() => setPaymentOpen(true)}
+          aria-keyshortcuts="F9 Control+Enter"
         >
-          Charge {formatCurrency(totals.totalAmount)}
+          <span>Charge {formatCurrency(totals.totalAmount)}</span>
+          <ShortcutHint keyName={chargeKeyDisplay} altKeyName="Ctrl+Enter" />
         </Button>
       </div>
 

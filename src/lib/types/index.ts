@@ -64,17 +64,21 @@ export interface CategoryDto {
   description: string | null;
   isActive: boolean;
   productCount: number;
+  /** Phase 3 extension point: manual store-level category hotkey override */
+  hotKey?: string | null;
 }
 
 export interface CreateCategoryRequest {
   name: string;
   description?: string | null;
+  hotKey?: string | null;
 }
 
 export interface UpdateCategoryRequest {
   name: string;
   description?: string | null;
   isActive: boolean;
+  hotKey?: string | null;
 }
 
 // ---------- Product ----------
@@ -510,6 +514,7 @@ export interface StoreSettingsDto {
   receiptHeader: string;
   receiptFooter: string;
   defaultPaperWidth: string;
+  hotkeyBindingsJson?: string | null;
 }
 
 export interface UpdateStoreSettingsRequest {
@@ -525,6 +530,7 @@ export interface UpdateStoreSettingsRequest {
   receiptHeader: string;
   receiptFooter: string;
   defaultPaperWidth: string;
+  hotkeyBindingsJson?: string | null;
 }
 
 export interface TerminalDto {

@@ -1,25 +1,115 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useMemo, useCallback } from "react";
 import { toast } from "sonner";
-import { Monitor, Lock, Wrench } from "lucide-react";
+import { Monitor, Lock, Wrench, Keyboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { CartPanel } from "@/components/pos/cart-panel";
 import { AddToCartDialog } from "@/components/pos/add-to-cart-dialog";
 import { AssignCounterModal } from "@/components/pos/assign-counter-modal";
 import { HardwareTestModal } from "@/components/pos/hardware-test-modal";
-import { useCartStore } from "@/store/cart-store";
+import { ShortcutsDialog } from "@/components/pos/shortcuts-dialog";
+import { ShortcutHint } from "@/components/pos/shortcut-hint";
+import { useCartStore, useActiveBill } from "@/store/cart-store";
+import { useHotkeysStore } from "@/store/hotkeys-store";
 import { useActiveTerminal } from "@/lib/hooks/use-active-terminal";
+import { useCategories } from "@/lib/hooks/use-categories";
+import { usePosHotkeys } from "@/hooks/use-hotkeys";
+import { assignCategoryKeys } from "@/lib/hotkeys/config";
 import type { ProductDto } from "@/lib/types";
 
 export default function PosPage() {
   const addLine = useCartStore((s) => s.addLine);
-  const [pendingProduct, setPendingProduct] = useState<ProductDto | null>(null);
+  const bills = useCartStore((s) => s.bills);
+  const addBill = useCartStore((s) => s.addBill);
+  const switchBill = useCartStore((s) => s.switchBill);
+  const activeBill = useActiveBill();
 
-  const { activeTerminal, hasNoStoredTerminal, effectivePaperWidth } = useActiveTerminal();
+  const setCheatSheetOpen = useHotkeysStore((s) => s.setCheatSheetOpen);
+
+  const [pendingProduct, setPendingProduct] = useState<ProductDto | null>(null);
+  const [categoryId, setCategoryId] = useState<string>("all");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const { activeTerminal, storeSettings, hasNoStoredTerminal, effectivePaperWidth } = useActiveTerminal();
   const [switchCounterOpen, setSwitchCounterOpen] = useState(false);
   const [hardwareTestOpen, setHardwareTestOpen] = useState(false);
+
+  const categoryKeys = useHotkeysStore((s) => s.categoryKeys);
+  const syncFromStoreSettings = useHotkeysStore((s) => s.syncFromStoreSettings);
+
+  useEffect(() => {
+    if (storeSettings?.hotkeyBindingsJson) {
+      syncFromStoreSettings(storeSettings.hotkeyBindingsJson);
+    }
+  }, [storeSettings?.hotkeyBindingsJson, syncFromStoreSettings]);
+
+  // Fetch categories & calculate dynamic key bindings with configured admin overrides
+  const categoriesQuery = useCategories();
+  const categoryBindings = useMemo(
+    () => assignCategoryKeys(categoriesQuery.data ?? [], categoryKeys),
+    [categoriesQuery.data, categoryKeys],
+  );
+
+  const handleCategoryChange = useCallback((id: string, name: string) => {
+    setCategoryId(id);
+    toast.info(`Category: ${name}`, { duration: 1500 });
+  }, []);
+
+  // Connect POS keyboard shortcuts engine
+  usePosHotkeys({
+    categoryBindings,
+    onSelectCategory: handleCategoryChange,
+    onFocusSearch: () => {
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+        searchInputRef.current.select();
+      }
+    },
+    onClearSearch: () => {
+      if (searchInputRef.current && searchInputRef.current.value.length > 0) {
+        searchInputRef.current.value = "";
+        searchInputRef.current.dispatchEvent(new Event("input", { bubbles: true }));
+        return true;
+      }
+      return false;
+    },
+    onBlurSearch: () => {
+      searchInputRef.current?.blur();
+    },
+    onFocusCustomer: () => {
+      const popoverInput = document.querySelector<HTMLInputElement>(
+        '[data-slot="popover-content"] input, [data-slot="popover-content"] [cmdk-input]',
+      );
+      if (popoverInput) {
+        popoverInput.focus();
+        popoverInput.select();
+      } else {
+        const btn = document.getElementById("pos-customer-picker-trigger");
+        btn?.click();
+      }
+    },
+    onFocusDiscount: () => {
+      const input = document.getElementById("pos-discount-input") as HTMLInputElement | null;
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    },
+    onNewBill: addBill,
+    onSwitchBillIndex: (index: number) => {
+      if (bills[index]) {
+        switchBill(bills[index].id);
+        toast.info(`Switched to ${bills[index].label}`);
+      }
+    },
+    onCharge: () => {
+      const chargeBtn = document.getElementById("pos-charge-button");
+      chargeBtn?.click();
+    },
+    isCartEmpty: activeBill.lines.length === 0,
+  });
 
   function handleSelect(product: ProductDto) {
     if (product.stockQuantity <= 0) {
@@ -60,6 +150,20 @@ export default function PosPage() {
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* Shortcuts cheat-sheet button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1.5"
+            onClick={() => setCheatSheetOpen(true)}
+            title="Keyboard Shortcuts Cheat-Sheet (? or Alt+H)"
+            aria-keyshortcuts="? Alt+h"
+          >
+            <Keyboard className="size-3" />
+            <span className="hidden sm:inline">Shortcuts</span>
+            <ShortcutHint keyName="?" altKeyName="Alt+H" />
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -84,7 +188,13 @@ export default function PosPage() {
       </div>
 
       <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
-        <ProductGrid onSelect={handleSelect} />
+        <ProductGrid
+          onSelect={handleSelect}
+          categoryId={categoryId}
+          onCategoryChange={handleCategoryChange}
+          categoryBindings={categoryBindings}
+          searchInputRef={searchInputRef}
+        />
         <div className="h-[calc(100vh-11.5rem)] min-h-[500px] overflow-hidden lg:sticky lg:top-0">
           <CartPanel />
         </div>
@@ -108,6 +218,9 @@ export default function PosPage() {
         open={hardwareTestOpen}
         onOpenChange={setHardwareTestOpen}
       />
+
+      {/* Keyboard Shortcuts Cheat-Sheet Modal */}
+      <ShortcutsDialog categoryBindings={categoryBindings} />
     </div>
   );
 }

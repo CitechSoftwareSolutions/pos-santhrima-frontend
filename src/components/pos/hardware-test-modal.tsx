@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Printer, ScanBarcode, Volume2, CheckCircle2, RotateCcw } from "lucide-react";
+import { Printer, ScanBarcode, Volume2, CheckCircle2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
