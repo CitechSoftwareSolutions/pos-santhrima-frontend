@@ -23,6 +23,12 @@ export function ReceiptView({ sale }: { sale: SaleDto }) {
           <span className="shrink-0">Cashier</span>
           <span className="truncate">{sale.cashierName}</span>
         </div>
+        {sale.terminalName && (
+          <div className="flex justify-between gap-2">
+            <span className="shrink-0">Counter</span>
+            <span className="truncate">{sale.terminalName}</span>
+          </div>
+        )}
         {sale.customerName && (
           <div className="flex justify-between gap-2">
             <span className="shrink-0">Customer</span>

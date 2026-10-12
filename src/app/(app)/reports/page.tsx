@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DollarSign, Receipt, TrendingUp, Percent, Boxes, PackageX } from "lucide-react";
+import { DollarSign, Receipt, TrendingUp, Percent, Boxes, PackageX, Users, Monitor } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { RequireRole } from "@/components/shared/require-role";
@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DailySalesChart } from "@/components/reports/daily-sales-chart";
 import {
+  useCashierSales,
   useDailySales,
   useInventoryValuation,
   useLowStockReport,
@@ -47,6 +48,7 @@ function ReportsPageContent() {
   const paymentBreakdown = usePaymentMethodBreakdown(utcRange);
   const lowStock = useLowStockReport();
   const inventoryValuation = useInventoryValuation();
+  const cashierSales = useCashierSales(utcRange);
 
   return (
     <div>
@@ -139,6 +141,71 @@ function ReportsPageContent() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-6 border-border/70 shadow-xs">
+        <CardHeader className="flex-row items-center justify-between pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Users className="size-4" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Cashier-Wise Sales Performance</CardTitle>
+              <p className="text-xs text-muted-foreground">Transactions and gross revenue processed per cashier for the selected period.</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {cashierSales.isLoading ? (
+            <div className="space-y-2 p-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-9 w-full" />
+              ))}
+            </div>
+          ) : cashierSales.data && cashierSales.data.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cashier</TableHead>
+                  <TableHead>Counter</TableHead>
+                  <TableHead className="text-center">Transactions</TableHead>
+                  <TableHead className="text-right">Total Revenue</TableHead>
+                  <TableHead className="text-right">Avg. Ticket</TableHead>
+                  <TableHead className="text-right">Discounts</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cashierSales.data.map((c) => (
+                  <TableRow key={c.cashierId}>
+                    <TableCell className="font-medium">
+                      <div>
+                        <p>{c.cashierName}</p>
+                        {c.cashierEmail && <p className="text-xs text-muted-foreground font-normal">{c.cashierEmail}</p>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-secondary/80 border border-border px-2 py-0.5 text-xs font-medium text-foreground">
+                        <Monitor className="size-3 text-primary" />
+                        {c.counterName || (c.counterNumber ? `Counter ${c.counterNumber}` : "Main Counter")}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-semibold">
+                        <Receipt className="size-3 text-muted-foreground" />
+                        {c.totalSales}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right font-bold">{formatCurrency(c.totalRevenue)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{formatCurrency(c.averageSaleValue)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{formatCurrency(c.totalDiscount)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="py-8 text-center text-sm text-muted-foreground">No cashier sales recorded in this period.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card>

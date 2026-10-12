@@ -441,6 +441,32 @@ export interface PaymentMethodBreakdownDto {
   count: number;
 }
 
+export interface CashierSalesDto {
+  cashierId: string;
+  cashierName: string;
+  cashierEmail: string | null;
+  counterName: string | null;
+  counterNumber: number | null;
+  totalSales: number;
+  totalRevenue: number;
+  averageSaleValue: number;
+  totalDiscount: number;
+  totalTax: number;
+  firstSaleTime: string | null;
+  lastSaleTime: string | null;
+}
+
+export interface CounterSalesDto {
+  terminalId: string | null;
+  counterNumber: number | null;
+  counterName: string;
+  terminalCode: string | null;
+  totalSales: number;
+  totalRevenue: number;
+  averageSaleValue: number;
+  activeCashiers: string[];
+}
+
 export interface ApiErrorResponse {
   status: number;
   title: string;

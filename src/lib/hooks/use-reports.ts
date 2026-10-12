@@ -42,3 +42,17 @@ export function usePaymentMethodBreakdown(range: DateRange) {
     queryFn: () => reportsApi.getPaymentMethodBreakdown(range),
   });
 }
+
+export function useCashierSales(range: DateRange) {
+  return useQuery({
+    queryKey: ["reports", "cashier-sales", range],
+    queryFn: () => reportsApi.getCashierSales(range),
+  });
+}
+
+export function useCounterSales(range: DateRange) {
+  return useQuery({
+    queryKey: ["reports", "counter-sales", range],
+    queryFn: () => reportsApi.getCounterSales(range),
+  });
+}
