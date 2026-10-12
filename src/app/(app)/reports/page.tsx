@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DollarSign, Receipt, TrendingUp, Percent, Boxes, PackageX, Users } from "lucide-react";
+import { DollarSign, Receipt, TrendingUp, Percent, Boxes, PackageX, Users, Monitor } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { RequireRole } from "@/components/shared/require-role";
@@ -166,6 +166,7 @@ function ReportsPageContent() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Cashier</TableHead>
+                  <TableHead>Counter</TableHead>
                   <TableHead className="text-center">Transactions</TableHead>
                   <TableHead className="text-right">Total Revenue</TableHead>
                   <TableHead className="text-right">Avg. Ticket</TableHead>
@@ -180,6 +181,12 @@ function ReportsPageContent() {
                         <p>{c.cashierName}</p>
                         {c.cashierEmail && <p className="text-xs text-muted-foreground font-normal">{c.cashierEmail}</p>}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-secondary/80 border border-border px-2 py-0.5 text-xs font-medium text-foreground">
+                        <Monitor className="size-3 text-primary" />
+                        {c.counterName || (c.counterNumber ? `Counter ${c.counterNumber}` : "Main Counter")}
+                      </span>
                     </TableCell>
                     <TableCell className="text-center">
                       <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-semibold">

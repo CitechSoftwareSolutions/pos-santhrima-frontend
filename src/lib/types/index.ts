@@ -445,6 +445,8 @@ export interface CashierSalesDto {
   cashierId: string;
   cashierName: string;
   cashierEmail: string | null;
+  counterName: string | null;
+  counterNumber: number | null;
   totalSales: number;
   totalRevenue: number;
   averageSaleValue: number;
@@ -452,6 +454,17 @@ export interface CashierSalesDto {
   totalTax: number;
   firstSaleTime: string | null;
   lastSaleTime: string | null;
+}
+
+export interface CounterSalesDto {
+  terminalId: string | null;
+  counterNumber: number | null;
+  counterName: string;
+  terminalCode: string | null;
+  totalSales: number;
+  totalRevenue: number;
+  averageSaleValue: number;
+  activeCashiers: string[];
 }
 
 export interface ApiErrorResponse {

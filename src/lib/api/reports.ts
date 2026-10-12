@@ -1,6 +1,7 @@
 import { apiClient } from "./client";
 import type {
   CashierSalesDto,
+  CounterSalesDto,
   DailySalesDto,
   InventoryValuationDto,
   LowStockReportItemDto,
@@ -44,5 +45,10 @@ export const reportsApi = {
   getCashierSales: (range: DateRange) =>
     apiClient
       .get<CashierSalesDto[]>("/reports/cashier-sales", { params: range })
+      .then((r) => r.data),
+
+  getCounterSales: (range: DateRange) =>
+    apiClient
+      .get<CounterSalesDto[]>("/reports/counter-sales", { params: range })
       .then((r) => r.data),
 };

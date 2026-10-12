@@ -49,3 +49,10 @@ export function useCashierSales(range: DateRange) {
     queryFn: () => reportsApi.getCashierSales(range),
   });
 }
+
+export function useCounterSales(range: DateRange) {
+  return useQuery({
+    queryKey: ["reports", "counter-sales", range],
+    queryFn: () => reportsApi.getCounterSales(range),
+  });
+}
