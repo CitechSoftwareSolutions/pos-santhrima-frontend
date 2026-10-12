@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useCustomers, useCustomer } from "@/lib/hooks/use-customers";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
+import { useHotkeysStore } from "@/store/hotkeys-store";
 import { ShortcutHint } from "./shortcut-hint";
 import type { CustomerDto } from "@/lib/types";
 

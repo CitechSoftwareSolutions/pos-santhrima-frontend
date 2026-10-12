@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import { Monitor, Lock, Wrench, Keyboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
