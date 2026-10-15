@@ -52,9 +52,8 @@ export default function PosPage() {
     [categoriesQuery.data, categoryKeys],
   );
 
-  const handleCategoryChange = useCallback((id: string, name: string) => {
+  const handleCategoryChange = useCallback((id: string) => {
     setCategoryId(id);
-    toast.info(`Category: ${name}`, { duration: 1500 });
   }, []);
 
   // Connect POS keyboard shortcuts engine
@@ -187,15 +186,17 @@ export default function PosPage() {
         </div>
       </div>
 
-      <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
-        <ProductGrid
-          onSelect={handleSelect}
-          categoryId={categoryId}
-          onCategoryChange={handleCategoryChange}
-          categoryBindings={categoryBindings}
-          searchInputRef={searchInputRef}
-        />
-        <div className="h-[calc(100vh-11.5rem)] min-h-[500px] overflow-hidden lg:sticky lg:top-0">
+      <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px] min-w-0 max-w-full">
+        <div className="min-w-0 max-w-full flex flex-col h-[calc(100vh-11.5rem)] min-h-[500px]">
+          <ProductGrid
+            onSelect={handleSelect}
+            categoryId={categoryId}
+            onCategoryChange={handleCategoryChange}
+            categoryBindings={categoryBindings}
+            searchInputRef={searchInputRef}
+          />
+        </div>
+        <div className="min-w-0 h-[calc(100vh-11.5rem)] min-h-[500px] overflow-hidden lg:sticky lg:top-0">
           <CartPanel />
         </div>
 

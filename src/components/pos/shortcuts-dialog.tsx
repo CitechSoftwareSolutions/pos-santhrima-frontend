@@ -126,46 +126,17 @@ export function ShortcutsDialog({ categoryBindings = [] }: ShortcutsDialogProps)
 
         {/* Tip banner */}
         <div className="rounded-md border border-primary/20 bg-primary/5 p-2.5 text-xs text-muted-foreground">
-          <strong className="text-foreground">Two Layers UX:</strong> Bare keys (e.g.{" "}
-          <kbd className="rounded border bg-background px-1 py-0.5 font-mono text-[10px] text-foreground">W</kbd>
-          ) work when outside text fields. Holding{" "}
-          <kbd className="rounded border bg-background px-1 py-0.5 font-mono text-[10px] text-foreground">Alt</kbd>{" "}
-          (e.g.{" "}
-          <kbd className="rounded border bg-background px-1 py-0.5 font-mono text-[10px] text-foreground">Alt+W</kbd>
-          ) highlights all shortcuts and works even while typing in search.
+          <strong className="text-foreground">POS Navigation:</strong> Press{" "}
+          <kbd className="rounded border bg-background px-1 py-0.5 font-mono text-[10px] text-foreground">F2</kbd> or{" "}
+          <kbd className="rounded border bg-background px-1 py-0.5 font-mono text-[10px] text-foreground">/</kbd>{" "}
+          to search/scan items, use arrow keys to navigate products, and press{" "}
+          <kbd className="rounded border bg-background px-1 py-0.5 font-mono text-[10px] text-foreground">F9</kbd>{" "}
+          or{" "}
+          <kbd className="rounded border bg-background px-1 py-0.5 font-mono text-[10px] text-foreground">Ctrl+Enter</kbd>{" "}
+          to charge/checkout.
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-          {/* Categories */}
-          <div className="space-y-2 rounded-lg border p-3 bg-card/60">
-            <h3 className="font-semibold text-foreground flex items-center justify-between border-b pb-1">
-              <span>Categories</span>
-              <span className="text-[10px] font-normal text-muted-foreground">Bare / Alt+key</span>
-            </h3>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between py-0.5">
-                <span className="text-muted-foreground">All Categories</span>
-                <div className="flex items-center gap-1">
-                  <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold">A</kbd>
-                  <kbd className="rounded border bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-muted-foreground">Alt+A</kbd>
-                </div>
-              </div>
-              {categoryBindings.map((cat) => (
-                <div key={cat.id} className="flex items-center justify-between py-0.5">
-                  <span className="truncate pr-2 text-muted-foreground">{cat.name}</span>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold">
-                      {cat.displayKey}
-                    </kbd>
-                    <kbd className="rounded border bg-muted/50 px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
-                      Alt+{cat.displayKey}
-                    </kbd>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           {/* Search & Navigation */}
           <div className="space-y-2 rounded-lg border p-3 bg-card/60">
             <h3 className="font-semibold text-foreground border-b pb-1">Search & Grid Navigation</h3>

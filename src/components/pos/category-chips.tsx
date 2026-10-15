@@ -3,7 +3,6 @@
 import { useRef, useEffect } from "react";
 import { Check, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ShortcutHint } from "./shortcut-hint";
 import {
   Select,
   SelectContent,
@@ -16,7 +15,7 @@ import type { CategoryKeyBinding } from "@/lib/hotkeys/config";
 
 interface CategoryChipsProps {
   categories: CategoryDto[];
-  categoryBindings: CategoryKeyBinding[];
+  categoryBindings?: CategoryKeyBinding[];
   selectedId: string;
   onSelect: (id: string, name: string) => void;
   resultCount?: number;
@@ -30,9 +29,6 @@ export function CategoryChips({
   resultCount,
 }: CategoryChipsProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  // Map category id to key binding
-  const bindingMap = new Map(categoryBindings.map((b) => [b.id, b]));
 
   // Auto-scroll the active chip into view when changed via keyboard
   useEffect(() => {
@@ -71,15 +67,12 @@ export function CategoryChips({
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All categories (A)</SelectItem>
-            {categories.map((c) => {
-              const binding = bindingMap.get(c.id);
-              return (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name} {binding ? `(${binding.displayKey})` : ""}
-                </SelectItem>
-              );
-            })}
+            <SelectItem value="all">All categories</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -96,7 +89,6 @@ export function CategoryChips({
           type="button"
           role="tab"
           aria-selected={selectedId === "all"}
-          aria-keyshortcuts="a Alt+a"
           data-category-id="all"
           onClick={() => onSelect("all", "All categories")}
           className={cn(
@@ -109,11 +101,6 @@ export function CategoryChips({
           <Layers className="size-3 shrink-0" />
           <span>All</span>
           {selectedId === "all" && <Check className="size-3 shrink-0 stroke-[2.5]" />}
-          <ShortcutHint
-            keyName="A"
-            altKeyName="Alt+A"
-            className={selectedId === "all" ? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30" : ""}
-          />
           {selectedId === "all" && typeof resultCount === "number" && (
             <span className="ml-0.5 rounded-full bg-primary-foreground/25 px-1.5 py-0.2 text-[10px] font-semibold text-primary-foreground">
               {resultCount}
@@ -124,8 +111,6 @@ export function CategoryChips({
         {/* Dynamic Category Chips */}
         {categories.map((category) => {
           const isSelected = selectedId === category.id;
-          const binding = bindingMap.get(category.id);
-          const shortcutKey = binding?.displayKey;
 
           return (
             <button
@@ -133,7 +118,6 @@ export function CategoryChips({
               type="button"
               role="tab"
               aria-selected={isSelected}
-              aria-keyshortcuts={shortcutKey ? `${shortcutKey.toLowerCase()} Alt+${shortcutKey.toLowerCase()}` : undefined}
               data-category-id={category.id}
               onClick={() => onSelect(category.id, category.name)}
               className={cn(
@@ -145,13 +129,6 @@ export function CategoryChips({
             >
               <span className="truncate max-w-[140px]">{category.name}</span>
               {isSelected && <Check className="size-3 shrink-0 stroke-[2.5]" />}
-              {shortcutKey && (
-                <ShortcutHint
-                  keyName={shortcutKey}
-                  altKeyName={`Alt+${shortcutKey}`}
-                  className={isSelected ? "bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30" : ""}
-                />
-              )}
               {isSelected && typeof resultCount === "number" && (
                 <span className="ml-0.5 rounded-full bg-primary-foreground/25 px-1.5 py-0.2 text-[10px] font-semibold text-primary-foreground">
                   {resultCount}
