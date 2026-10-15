@@ -196,25 +196,6 @@ export function usePosHotkeys({
         }
         return;
       }
-
-      // Category Switching
-      // 1. All Categories: 'KeyA' (bare or Alt+A)
-      const allMatch = matchesCategoryKey(e, "KeyA", dialogOpen);
-      if (allMatch.matches) {
-        e.preventDefault();
-        opts.onSelectCategory?.("all", "All categories");
-        return;
-      }
-
-      // 2. Individual Category Keys (assigned dynamically)
-      for (const cat of opts.categoryBindings) {
-        const catMatch = matchesCategoryKey(e, cat.code, dialogOpen);
-        if (catMatch.matches) {
-          e.preventDefault();
-          opts.onSelectCategory?.(cat.id, cat.name);
-          return;
-        }
-      }
     }
 
     function handleKeyUp(e: KeyboardEvent) {

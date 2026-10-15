@@ -302,7 +302,15 @@ export function ProductGrid({
                         {product.name}
                       </span>
                     </div>
-                    <span className="text-xs text-muted-foreground">{product.sku}</span>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+                      <span>{product.sku}</span>
+                      {product.brand && (
+                        <>
+                          <span>•</span>
+                          <span className="font-medium text-foreground/80">{product.brand}</span>
+                        </>
+                      )}
+                    </div>
                     <div className="mt-auto pt-2 flex w-full items-center justify-between">
                       <span className="text-sm font-semibold">{formatCurrency(product.retailPrice)}</span>
                       <Badge

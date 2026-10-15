@@ -52,9 +52,8 @@ export default function PosPage() {
     [categoriesQuery.data, categoryKeys],
   );
 
-  const handleCategoryChange = useCallback((id: string, name: string) => {
+  const handleCategoryChange = useCallback((id: string) => {
     setCategoryId(id);
-    toast.info(`Category: ${name}`, { duration: 1500 });
   }, []);
 
   // Connect POS keyboard shortcuts engine
