@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Search, Barcode, PackageX, Keyboard } from "lucide-react";
+import { Search, Barcode, PackageX, Keyboard, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,6 +27,8 @@ interface ProductGridProps {
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
+const PAGE_SIZE = 12;
+
 export function ProductGrid({
   onSelect,
   categoryId: externalCategoryId,
@@ -39,6 +41,13 @@ export function ProductGrid({
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 150);
+
+  const [page, setPage] = useState<number>(1);
+
+  // Reset to page 1 when search or category filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, categoryId]);
 
   const localSearchInputRef = useRef<HTMLInputElement | null>(null);
   const activeSearchInputRef = searchInputRef ?? localSearchInputRef;
@@ -55,8 +64,8 @@ export function ProductGrid({
     search: debouncedSearch || undefined,
     categoryId: categoryId === "all" ? undefined : categoryId,
     isActive: true,
-    page: 1,
-    pageSize: 60,
+    page,
+    pageSize: PAGE_SIZE,
   });
 
   const productItems = useMemo(
@@ -64,7 +73,10 @@ export function ProductGrid({
     [productsQuery.data?.items],
   );
 
-  const totalCount = productsQuery.data?.totalCount ?? productItems.length;
+  const totalCount = productsQuery.data?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const startItem = totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const endItem = Math.min(page * PAGE_SIZE, totalCount);
 
   const handleCategorySelect = useCallback(
     (id: string, name: string) => {
@@ -73,9 +85,8 @@ export function ProductGrid({
       } else {
         setInternalCategoryId(id);
       }
-      toast.info(`Category: ${name} · ${totalCount} items`, { duration: 1500 });
     },
-    [onCategoryChange, totalCount],
+    [onCategoryChange],
   );
 
   // Barcode scan handler
@@ -100,25 +111,20 @@ export function ProductGrid({
     if (e.key === "ArrowDown") {
       e.preventDefault();
       if (productItems.length > 0) {
-        setFocusedProductIndex(0);
-        const targetBtn = productButtonRefs.current[0];
-        targetBtn?.focus();
-        targetBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        focusItem(0);
       }
     }
   }
 
-  // Calculate dynamic grid columns
-  const getGridColumnCount = useCallback(() => {
-    if (typeof window === "undefined") return 3;
-    const width = window.innerWidth;
-    if (width >= 1280) return 4;
-    if (width >= 640) return 3;
-    return 2;
-  }, []);
+  function focusItem(targetIdx: number) {
+    if (targetIdx < 0 || targetIdx >= productItems.length) return;
+    setFocusedProductIndex(targetIdx);
+    const targetBtn = productButtonRefs.current[targetIdx];
+    targetBtn?.focus();
+    targetBtn?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
 
-  // Global arrow navigation: when focus is on nothing / body / outside inputs and dialogs,
-  // pressing any arrow key immediately focuses and selects the product card!
+  // Global arrow navigation: focus product card when pressing arrow keys outside inputs
   useEffect(() => {
     function handleGlobalArrow(e: KeyboardEvent) {
       if (isTypingTarget(e.target) || isAnyDialogOpen()) return;
@@ -131,13 +137,10 @@ export function ProductGrid({
 
       if (!isArrow) return;
 
-      // If focus is already inside a product card button, let the card's local handler manage it
       const activeEl = document.activeElement as HTMLElement | null;
       if (activeEl?.getAttribute("data-product-card") === "true") {
         return;
       }
-
-      // If user is inside cart list items, let cart navigation handle it
       if (activeEl?.getAttribute("aria-label")?.startsWith("Cart line")) {
         return;
       }
@@ -148,10 +151,7 @@ export function ProductGrid({
           focusedProductIndex >= 0 && focusedProductIndex < productItems.length
             ? focusedProductIndex
             : 0;
-        setFocusedProductIndex(targetIndex);
-        const targetBtn = productButtonRefs.current[targetIndex];
-        targetBtn?.focus();
-        targetBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        focusItem(targetIndex);
       }
     }
 
@@ -159,55 +159,76 @@ export function ProductGrid({
     return () => window.removeEventListener("keydown", handleGlobalArrow);
   }, [productItems, focusedProductIndex]);
 
-  // Arrow key grid navigation
+  // Arrow key grid navigation: 3 columns (or 2/4 depending on screen width)
   const handleProductKeyDown = (
     e: React.KeyboardEvent<HTMLButtonElement>,
     index: number,
     product: ProductDto,
   ) => {
-    const cols = getGridColumnCount();
     const count = productItems.length;
+    // Determine rendered column count dynamically
+    let cols = 3;
+    if (productButtonRefs.current.length >= 2 && productButtonRefs.current[0] && productButtonRefs.current[1]) {
+      const firstTop = productButtonRefs.current[0].offsetTop;
+      let detectedCols = 0;
+      for (const btn of productButtonRefs.current) {
+        if (!btn) break;
+        if (Math.abs(btn.offsetTop - firstTop) < 6) {
+          detectedCols++;
+        } else {
+          break;
+        }
+      }
+      if (detectedCols > 0) cols = detectedCols;
+    }
 
     switch (e.key) {
       case "ArrowRight": {
         e.preventDefault();
-        const next = Math.min(count - 1, index + 1);
-        setFocusedProductIndex(next);
-        const nextBtn = productButtonRefs.current[next];
-        nextBtn?.focus();
-        nextBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        if (index + 1 < count) {
+          focusItem(index + 1);
+        }
         break;
       }
       case "ArrowLeft": {
         e.preventDefault();
-        const prev = Math.max(0, index - 1);
-        setFocusedProductIndex(prev);
-        const prevBtn = productButtonRefs.current[prev];
-        prevBtn?.focus();
-        prevBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        if (index > 0) {
+          focusItem(index - 1);
+        }
         break;
       }
       case "ArrowDown": {
         e.preventDefault();
-        const next = Math.min(count - 1, index + cols);
-        setFocusedProductIndex(next);
-        const nextBtn = productButtonRefs.current[next];
-        nextBtn?.focus();
-        nextBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        if (index + cols < count) {
+          focusItem(index + cols);
+        } else if (page < totalPages) {
+          // At bottom edge: pressing down navigates to next page
+          setPage((p) => p + 1);
+        }
         break;
       }
       case "ArrowUp": {
         e.preventDefault();
-        if (index < cols) {
-          // On the top row: move focus back up to the search input
+        if (index >= cols) {
+          focusItem(index - 1);
+        } else {
+          // At top row: move focus back up to search box
           activeSearchInputRef.current?.focus();
           setFocusedProductIndex(-1);
-        } else {
-          const prev = Math.max(0, index - cols);
-          setFocusedProductIndex(prev);
-          const prevBtn = productButtonRefs.current[prev];
-          prevBtn?.focus();
-          prevBtn?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        }
+        break;
+      }
+      case "PageDown": {
+        e.preventDefault();
+        if (page < totalPages) {
+          setPage((p) => p + 1);
+        }
+        break;
+      }
+      case "PageUp": {
+        e.preventDefault();
+        if (page > 1) {
+          setPage((p) => p - 1);
         }
         break;
       }
@@ -226,15 +247,15 @@ export function ProductGrid({
   }, [productItems]);
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className="flex h-full flex-col gap-2.5 min-w-0 max-w-full overflow-hidden">
       {/* Top Search & Category Chips */}
-      <div className="flex flex-col gap-2">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-2 shrink-0 min-w-0">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={activeSearchInputRef}
             placeholder="Search products, or scan barcode + Enter"
-            className="pl-9 pr-16"
+            className="pl-9 pr-16 w-full"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={handleScan}
@@ -247,75 +268,87 @@ export function ProductGrid({
         </div>
 
         {/* Category Chips Bar */}
-        <CategoryChips
-          categories={categories}
-          categoryBindings={categoryBindings}
-          selectedId={categoryId}
-          onSelect={handleCategorySelect}
-          resultCount={totalCount}
-        />
+        <div className="min-w-0 max-w-full overflow-hidden">
+          <CategoryChips
+            categories={categories}
+            categoryBindings={categoryBindings}
+            selectedId={categoryId}
+            onSelect={handleCategorySelect}
+            resultCount={totalCount}
+          />
+        </div>
       </div>
 
-      {/* Product Cards Grid */}
+      {/* Product Cards Container - Vertical Scrolling Down, NEVER Horizontal */}
       <div
         role="region"
         aria-label="Products Grid"
-        className="flex-1 overflow-y-auto rounded-xl border bg-background p-3 flex flex-col justify-between"
+        className="flex-1 min-w-0 overflow-hidden rounded-xl border bg-background p-3 flex flex-col justify-between"
       >
-        <div>
+        {/* Scrollable Downwards Container */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 pr-1 scrollbar-thin">
           {productsQuery.isLoading ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <Skeleton key={i} className="h-28 rounded-lg" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5">
+              {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                <Skeleton key={i} className="h-24 rounded-lg" />
               ))}
             </div>
           ) : productItems.length > 0 ? (
             <div
-              className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4"
+              className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5"
               role="grid"
               aria-label="Product items"
             >
               {productItems.map((product, index) => {
                 const isOutOfStock = product.stockQuantity <= 0;
+                const isFocused = focusedProductIndex === index;
+
                 return (
                   <button
                     key={product.id}
+                    type="button"
                     data-product-card="true"
                     ref={(el) => {
                       productButtonRefs.current[index] = el;
                     }}
-                    tabIndex={focusedProductIndex === index || (focusedProductIndex === -1 && index === 0) ? 0 : -1}
+                    tabIndex={isFocused || (focusedProductIndex === -1 && index === 0) ? 0 : -1}
                     onClick={() => onSelect(product)}
                     onFocus={() => setFocusedProductIndex(index)}
                     onKeyDown={(e) => handleProductKeyDown(e, index, product)}
                     disabled={isOutOfStock}
                     className={cn(
-                      "group flex flex-col items-start gap-1 rounded-lg border bg-card p-3 text-left transition-all duration-150",
+                      "group flex flex-col items-start gap-1 rounded-lg border bg-card p-2.5 text-left transition-all duration-150 min-h-[92px]",
                       "hover:border-primary/50 hover:bg-accent",
-                      "focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring-offset-1 focus-visible:outline-none",
-                      focusedProductIndex === index && "ring-2 ring-primary border-primary bg-accent/60 shadow-sm",
+                      "focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:outline-none",
+                      isFocused && "ring-2 ring-primary border-primary bg-accent/60 shadow-sm",
                       "disabled:cursor-not-allowed disabled:opacity-40",
                     )}
                   >
-                    <div className="flex w-full items-start justify-between gap-2">
-                      <span className="text-sm font-medium leading-snug line-clamp-2">
+                    <div className="flex w-full items-start justify-between gap-1.5">
+                      <span className="text-xs sm:text-sm font-medium leading-snug line-clamp-2 text-foreground">
                         {product.name}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground flex-wrap">
                       <span>{product.sku}</span>
                       {product.brand && (
                         <>
                           <span>•</span>
-                          <span className="font-medium text-foreground/80">{product.brand}</span>
+                          <span className="font-medium text-foreground/80 truncate max-w-[100px]">
+                            {product.brand}
+                          </span>
                         </>
                       )}
                     </div>
-                    <div className="mt-auto pt-2 flex w-full items-center justify-between">
-                      <span className="text-sm font-semibold">{formatCurrency(product.retailPrice)}</span>
+
+                    <div className="mt-auto pt-1.5 flex w-full items-center justify-between gap-1">
+                      <span className="text-xs sm:text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
+                        {formatCurrency(product.retailPrice)}
+                      </span>
                       <Badge
                         variant={product.stockQuantity <= product.reorderLevel ? "destructive" : "secondary"}
-                        className="text-[10px]"
+                        className="text-[9px] px-1 py-0 shrink-0 font-normal"
                       >
                         {product.stockQuantity} in stock
                       </Badge>
@@ -332,22 +365,51 @@ export function ProductGrid({
           )}
         </div>
 
-        {/* Footer Shortcut Discovery Hint */}
-        <div className="mt-3 flex items-center justify-between border-t pt-2 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <span className="font-medium text-foreground">{totalCount}</span> products found
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-1.5 text-[11px] text-muted-foreground hover:text-foreground gap-1.5"
-            onClick={() => setCheatSheetOpen(true)}
-          >
-            <Keyboard className="size-3" />
-            <span>Press</span>
-            <kbd className="font-mono text-[10px] px-1 py-0.2 rounded border bg-muted font-semibold">?</kbd>
-            <span>for shortcuts</span>
-          </Button>
+        {/* Footer with Previous / Next Pagination Buttons */}
+        <div className="mt-2.5 flex items-center justify-between border-t border-border/60 pt-2.5 text-xs shrink-0 min-w-0">
+          <div className="text-muted-foreground truncate pr-2">
+            Showing <span className="font-semibold text-foreground">{startItem}</span>–
+            <span className="font-semibold text-foreground">{endItem}</span> of{" "}
+            <span className="font-semibold text-foreground">{totalCount}</span> items
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || productsQuery.isLoading}
+              className="h-8 px-3 text-xs gap-1.5 font-medium select-none"
+            >
+              <ChevronLeft className="size-3.5" />
+              <span>Previous</span>
+            </Button>
+
+            <span className="text-xs font-semibold px-2 text-foreground whitespace-nowrap">
+              Page {page} of {totalPages}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || productsQuery.isLoading}
+              className="h-8 px-3 text-xs gap-1.5 font-medium select-none"
+            >
+              <span>Next</span>
+              <ChevronRight className="size-3.5" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1 ml-1"
+              onClick={() => setCheatSheetOpen(true)}
+            >
+              <Keyboard className="size-3.5" />
+              <span className="hidden sm:inline">Shortcuts</span>
+            </Button>
+          </div>
         </div>
       </div>
     </div>
