@@ -11,6 +11,7 @@ import {
   UserCog,
   Settings,
   Tag,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 import { ROLES } from "@/lib/types";
@@ -64,5 +65,6 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [ROLES.Admin, ROLES.Manager],
   },
   { href: "/users", label: "Users", icon: UserCog, roles: [ROLES.Admin] },
+  { href: "/cheques", label: "Cheques", icon: CreditCard, roles: [ROLES.Admin] },
   { href: "/settings", label: "Settings", icon: Settings, roles: [ROLES.Admin] },
 ];

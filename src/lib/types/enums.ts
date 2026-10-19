@@ -91,3 +91,17 @@ export const PromotionTypeLabels: Record<PromotionType, string> = {
   [PromotionType.BulkPercentOff]: "Bulk % Off",
   [PromotionType.FixedPriceBundle]: "Fixed-Price Bundle",
 };
+
+export enum ChequeStatus {
+  Pending = 0,
+  Cleared = 1,
+  Bounced = 2,
+  Cancelled = 3,
+}
+
+export const ChequeStatusLabels: Record<ChequeStatus, string> = {
+  [ChequeStatus.Pending]: "Pending",
+  [ChequeStatus.Cleared]: "Cleared",
+  [ChequeStatus.Bounced]: "Bounced",
+  [ChequeStatus.Cancelled]: "Cancelled",
+};
