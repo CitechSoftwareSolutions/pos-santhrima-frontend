@@ -625,3 +625,5 @@ export interface AuthorizeSwitchRequest {
   password: string;
 }
 
+export * from "./cheques";
+
