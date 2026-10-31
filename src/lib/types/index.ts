@@ -544,6 +544,8 @@ export interface StoreSettingsDto {
   receiptFooter: string;
   defaultPaperWidth: string;
   hotkeyBindingsJson?: string | null;
+  cashierSalesShiftThreshold?: number;
+  cashierSalesShiftEnabled?: boolean;
 }
 
 export interface UpdateStoreSettingsRequest {
@@ -560,6 +562,8 @@ export interface UpdateStoreSettingsRequest {
   receiptFooter: string;
   defaultPaperWidth: string;
   hotkeyBindingsJson?: string | null;
+  cashierSalesShiftThreshold?: number;
+  cashierSalesShiftEnabled?: boolean;
 }
 
 export interface TerminalDto {

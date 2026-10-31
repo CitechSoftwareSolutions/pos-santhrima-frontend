@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
-import { Menu, Moon, Sun, LogOut, User, Settings } from "lucide-react";
+import { Menu, Moon, Sun, LogOut, User, Settings, Database, Store as StoreIcon } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -34,8 +36,30 @@ function initials(name: string) {
 export function Topbar() {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isDarkMode = resolvedTheme === "dark" || theme === "dark";
+
+  function handleThemeToggle() {
+    const nextTheme = isDarkMode ? "light" : "dark";
+    setTheme(nextTheme);
+
+    // Invalidate all active queries so data from the other database loads immediately
+    setTimeout(() => {
+      queryClient.invalidateQueries();
+      if (nextTheme === "dark") {
+        toast.info("Switched to Admin Database (Dark Mode)", {
+          description: "All shifted sales, records, and reports are now loaded from the Admin database.",
+        });
+      } else {
+        toast.success("Switched to Normal Database (Light Mode)", {
+          description: "Active counter sales and store operations loaded from the Normal database.",
+        });
+      }
+    }, 50);
+  }
 
   return (
     <header className="flex h-14 items-center justify-between gap-4 border-b bg-background px-4">
@@ -56,11 +80,32 @@ export function Topbar() {
         </Sheet>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
+        {isDarkMode ? (
+          <Badge
+            variant="outline"
+            className="hidden sm:inline-flex items-center gap-1.5 border-amber-500/40 bg-amber-500/10 text-amber-500 text-xs px-2.5 py-1 font-semibold transition-all shadow-xs"
+            title="Connected to Admin Database"
+          >
+            <Database className="size-3.5 text-amber-500" />
+            <span>Admin DB</span>
+          </Badge>
+        ) : (
+          <Badge
+            variant="outline"
+            className="hidden sm:inline-flex items-center gap-1.5 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 text-xs px-2.5 py-1 font-semibold transition-all shadow-xs"
+            title="Connected to Normal Store Database"
+          >
+            <StoreIcon className="size-3.5 text-emerald-600" />
+            <span>Normal DB</span>
+          </Badge>
+        )}
+
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={handleThemeToggle}
+          title={isDarkMode ? "Switch to Normal Database (Light Mode)" : "Switch to Admin Database (Dark Mode)"}
         >
           <Sun className="size-4 rotate-0 scale-100 dark:-rotate-90 dark:scale-0 transition-all" />
           <Moon className="absolute size-4 rotate-90 scale-0 dark:rotate-0 dark:scale-100 transition-all" />
