@@ -18,9 +18,29 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       user: null,
       isAuthenticated: false,
-      setAuth: (token, user) => set({ token, user, isAuthenticated: true }),
+      setAuth: (token, user) => {
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("theme", "light");
+            document.documentElement.classList.remove("dark");
+          } catch {
+            // ignore
+          }
+        }
+        set({ token, user, isAuthenticated: true });
+      },
       updateUser: (user) => set({ user }),
-      clearAuth: () => set({ token: null, user: null, isAuthenticated: false }),
+      clearAuth: () => {
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("theme", "light");
+            document.documentElement.classList.remove("dark");
+          } catch {
+            // ignore
+          }
+        }
+        set({ token: null, user: null, isAuthenticated: false });
+      },
       hasRole: (...roles) => {
         const user = get().user;
         if (!user) return false;
