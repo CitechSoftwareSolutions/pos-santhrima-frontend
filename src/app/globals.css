@@ -130,17 +130,64 @@
 }
 
 @media print {
-  body * {
-    visibility: hidden;
+  @page {
+    size: auto;
+    margin: 4mm;
   }
-  #receipt-print-area,
-  #receipt-print-area * {
-    visibility: visible;
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
+
+  /* Hide regular page elements */
+  nav,
+  header,
+  aside,
+  footer,
+  button,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Reset dialog overlays and portals */
+  [data-slot="dialog-overlay"] {
+    display: none !important;
+  }
+
+  /* Unclip dialog popup so it flows naturally on paper */
+  [data-slot="dialog-content"] {
+    position: static !important;
+    transform: none !important;
+    max-width: 80mm !important;
+    width: 80mm !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #000 !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+  }
+
   #receipt-print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+    position: static !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    color: #000 !important;
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+  }
+
+  #receipt-print-area * {
+    color: #000 !important;
+    border-color: #000 !important;
+    background: transparent !important;
   }
 }

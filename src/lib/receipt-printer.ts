@@ -1,0 +1,309 @@
+import { formatCurrency, formatDate } from "./format";
+import { PaymentMethodLabels, type SaleDto, type StoreSettingsDto, type TerminalDto } from "./types";
+
+interface PrintReceiptOptions {
+  settings?: StoreSettingsDto | null;
+  terminal?: TerminalDto | null;
+}
+
+export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
+  if (typeof window === "undefined") return;
+
+  const { settings, terminal } = options || {};
+  const paperWidth = terminal?.paperWidth || settings?.defaultPaperWidth || "80mm";
+  const is58mm = paperWidth === "58mm";
+  const containerWidth = is58mm ? "48mm" : "74mm";
+  const fontSize = is58mm ? "11px" : "12px";
+
+  const storeName = settings?.storeName || "සන්ත්‍රිමා ස්ටෝර්ස්";
+  const storeAddress = settings?.storeAddress || "";
+  const storePhone = settings?.storePhone || "";
+  const receiptHeader = settings?.receiptHeader || "";
+  const receiptFooter = settings?.receiptFooter || "Thank you for shopping with us! Please come again.";
+
+  const counterName = sale.terminalName || terminal?.name || "";
+
+  const itemsHtml = sale.items
+    .map(
+      (item) => `
+      <div style="margin-bottom: 4px;">
+        <div style="font-weight: 600; word-break: break-word;">${escapeHtml(item.productName)}</div>
+        <div style="display: flex; justify-content: space-between; font-size: ${is58mm ? "10px" : "11px"}; color: #222;">
+          <span>${item.quantity} x ${formatCurrency(item.unitPrice)}${
+            item.discountAmount > 0 ? ` (-${formatCurrency(item.discountAmount)})` : ""
+          }</span>
+          <span style="font-weight: 600;">${formatCurrency(item.lineTotal)}</span>
+        </div>
+      </div>
+    `,
+    )
+    .join("");
+
+  const paymentsHtml = sale.payments
+    .map(
+      (p) => `
+      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+        <span>${PaymentMethodLabels[p.method] || "Payment"}:</span>
+        <span style="font-weight: 500;">${formatCurrency(p.amount)}</span>
+      </div>
+    `,
+    )
+    .join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Receipt - ${sale.saleNumber}</title>
+        <style>
+          @page {
+            size: ${paperWidth} auto;
+            margin: 0;
+          }
+          * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          html, body {
+            margin: 0;
+            padding: 0;
+            background: #fff !important;
+            color: #000 !important;
+          }
+          body {
+            font-family: 'Nirmala UI', 'Courier New', Courier, monospace, sans-serif;
+            width: ${containerWidth};
+            margin: 0 auto;
+            padding: 10px 4px;
+            font-size: ${fontSize};
+            line-height: 1.35;
+          }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .bold { font-weight: 700; }
+          .title { font-size: ${is58mm ? "14px" : "16px"}; font-weight: 700; line-height: 1.2; }
+          .subtitle { font-size: 11px; margin-top: 2px; }
+          .divider {
+            border-bottom: 1px dashed #000;
+            margin: 6px 0;
+          }
+          .double-divider {
+            border-bottom: 2px solid #000;
+            margin: 6px 0;
+          }
+          .row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: ${is58mm ? "14px" : "15px"};
+            font-weight: 700;
+            padding: 4px 0;
+          }
+          .barcode-mock {
+            font-family: 'Courier New', Courier, monospace;
+            letter-spacing: 2px;
+            font-size: 16px;
+            font-weight: 900;
+            margin: 6px 0 2px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <!-- STORE BRANDING -->
+        <div class="text-center">
+          <div class="title">${escapeHtml(storeName)}</div>
+          ${storeAddress ? `<div class="subtitle">${escapeHtml(storeAddress)}</div>` : ""}
+          ${storePhone ? `<div class="subtitle">Tel: ${escapeHtml(storePhone)}</div>` : ""}
+          ${receiptHeader ? `<div class="subtitle" style="margin-top: 3px; font-style: italic;">${escapeHtml(receiptHeader)}</div>` : ""}
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- SALE METADATA -->
+        <div class="row">
+          <span>Receipt #:</span>
+          <span class="bold">${escapeHtml(sale.saleNumber)}</span>
+        </div>
+        <div class="row">
+          <span>Date:</span>
+          <span>${formatDate(sale.saleDate)}</span>
+        </div>
+        <div class="row">
+          <span>Cashier:</span>
+          <span>${escapeHtml(sale.cashierName)}</span>
+        </div>
+        ${
+          counterName
+            ? `
+        <div class="row">
+          <span>Counter:</span>
+          <span>${escapeHtml(counterName)}</span>
+        </div>`
+            : ""
+        }
+        ${
+          sale.customerName
+            ? `
+        <div class="row">
+          <span>Customer:</span>
+          <span class="bold">${escapeHtml(sale.customerName)}</span>
+        </div>`
+            : ""
+        }
+
+        <div class="divider"></div>
+
+        <!-- ITEMS HEADER -->
+        <div class="row bold" style="font-size: ${is58mm ? "10px" : "11px"}; text-transform: uppercase;">
+          <span>Item</span>
+          <span>Total</span>
+        </div>
+        <div class="divider" style="margin: 2px 0 4px 0;"></div>
+
+        <!-- ITEMS LIST -->
+        ${itemsHtml}
+
+        <div class="divider"></div>
+
+        <!-- TOTALS & DISCOUNTS -->
+        <div class="row">
+          <span>Subtotal:</span>
+          <span>${formatCurrency(sale.subTotal)}</span>
+        </div>
+        ${
+          sale.loyaltyPointsRedeemed > 0
+            ? `
+        <div class="row">
+          <span>Points Redeemed (${sale.loyaltyPointsRedeemed.toFixed(2)} pts):</span>
+          <span>-${formatCurrency(sale.loyaltyPointsRedeemed)}</span>
+        </div>`
+            : ""
+        }
+        ${
+          sale.discountAmount > 0
+            ? `
+        <div class="row">
+          <span>Discount:</span>
+          <span>-${formatCurrency(sale.discountAmount)}</span>
+        </div>`
+            : ""
+        }
+        ${
+          sale.taxAmount > 0
+            ? `
+        <div class="row">
+          <span>Tax:</span>
+          <span>${formatCurrency(sale.taxAmount)}</span>
+        </div>`
+            : ""
+        }
+
+        <div class="double-divider"></div>
+
+        <div class="total-row">
+          <span>TOTAL:</span>
+          <span>${formatCurrency(sale.totalAmount)}</span>
+        </div>
+
+        <div class="double-divider"></div>
+
+        <!-- PAYMENTS -->
+        ${paymentsHtml}
+        ${
+          sale.changeDue > 0
+            ? `
+        <div class="row bold">
+          <span>Change:</span>
+          <span>${formatCurrency(sale.changeDue)}</span>
+        </div>`
+            : ""
+        }
+
+        ${
+          sale.loyaltyPointsEarned > 0
+            ? `
+        <div class="divider"></div>
+        <div class="row" style="font-size: 11px;">
+          <span>Royalty Points Earned:</span>
+          <span class="bold">+${sale.loyaltyPointsEarned.toFixed(2)} pts</span>
+        </div>`
+            : ""
+        }
+
+        <div class="divider"></div>
+
+        <!-- FOOTER & BARCODE -->
+        <div class="text-center">
+          <div style="font-size: 11px; margin-bottom: 4px;">${escapeHtml(receiptFooter)}</div>
+          <div class="barcode-mock">||| | ||||| || |||| ||| |||</div>
+          <div style="font-size: 10px; letter-spacing: 1px;">*${escapeHtml(sale.saleNumber)}*</div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  // Use a hidden iframe for zero-popup-blocker, isolated printing
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "none";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) {
+    // Fallback: popup window if iframe document is not accessible
+    const win = window.open("", "_blank", "width=420,height=600");
+    if (win) {
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => {
+        win.print();
+        setTimeout(() => win.close(), 1000);
+      }, 300);
+    }
+    return;
+  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch {
+      // ignore
+    } finally {
+      setTimeout(() => {
+        try {
+          document.body.removeChild(iframe);
+        } catch {
+          // ignore
+        }
+      }, 2000);
+    }
+  }, 300);
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
