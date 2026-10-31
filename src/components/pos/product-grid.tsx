@@ -1,7 +1,17 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Search, Barcode, PackageX, Keyboard, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Search,
+  Barcode,
+  PackageX,
+  Keyboard,
+  ChevronLeft,
+  ChevronRight,
+  LayoutList,
+  LayoutGrid,
+  Plus,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,6 +48,25 @@ export function ProductGrid({
 }: ProductGridProps) {
   const [internalCategoryId, setInternalCategoryId] = useState<string>("all");
   const categoryId = externalCategoryId ?? internalCategoryId;
+
+  // View mode: default to "list" as requested
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("pos_product_view_mode");
+      if (saved === "list" || saved === "grid") {
+        setViewMode(saved);
+      }
+    } catch {}
+  }, []);
+
+  const handleViewModeChange = (mode: "list" | "grid") => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("pos_product_view_mode", mode);
+    } catch {}
+  };
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 150);
@@ -107,7 +136,7 @@ export function ProductGrid({
       return;
     }
 
-    // Move to first product card on ArrowDown from search box
+    // Move to first product on ArrowDown from search box
     if (e.key === "ArrowDown") {
       e.preventDefault();
       if (productItems.length > 0) {
@@ -124,7 +153,7 @@ export function ProductGrid({
     targetBtn?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }
 
-  // Global arrow navigation: focus product card when pressing arrow keys outside inputs
+  // Global arrow navigation: focus product when pressing arrow keys outside inputs
   useEffect(() => {
     function handleGlobalArrow(e: KeyboardEvent) {
       if (isTypingTarget(e.target) || isAnyDialogOpen()) return;
@@ -159,14 +188,61 @@ export function ProductGrid({
     return () => window.removeEventListener("keydown", handleGlobalArrow);
   }, [productItems, focusedProductIndex]);
 
-  // Arrow key grid navigation: 3 columns (or 2/4 depending on screen width)
+  // Arrow key navigation (linear for list view, grid-aware for tiles view)
   const handleProductKeyDown = (
     e: React.KeyboardEvent<HTMLButtonElement>,
     index: number,
     product: ProductDto,
   ) => {
     const count = productItems.length;
-    // Determine rendered column count dynamically
+
+    // Linear navigation for List View
+    if (viewMode === "list") {
+      switch (e.key) {
+        case "ArrowDown": {
+          e.preventDefault();
+          if (index + 1 < count) {
+            focusItem(index + 1);
+          } else if (page < totalPages) {
+            setPage((p) => p + 1);
+          }
+          break;
+        }
+        case "ArrowUp": {
+          e.preventDefault();
+          if (index > 0) {
+            focusItem(index - 1);
+          } else {
+            activeSearchInputRef.current?.focus();
+            setFocusedProductIndex(-1);
+          }
+          break;
+        }
+        case "PageDown": {
+          e.preventDefault();
+          if (page < totalPages) {
+            setPage((p) => p + 1);
+          }
+          break;
+        }
+        case "PageUp": {
+          e.preventDefault();
+          if (page > 1) {
+            setPage((p) => p - 1);
+          }
+          break;
+        }
+        case "Enter":
+        case " ": {
+          e.preventDefault();
+          onSelect(product);
+          break;
+        }
+      }
+      return;
+    }
+
+    // Grid navigation for Tiles View
     let cols = 3;
     if (productButtonRefs.current.length >= 2 && productButtonRefs.current[0] && productButtonRefs.current[1]) {
       const firstTop = productButtonRefs.current[0].offsetTop;
@@ -202,7 +278,6 @@ export function ProductGrid({
         if (index + cols < count) {
           focusItem(index + cols);
         } else if (page < totalPages) {
-          // At bottom edge: pressing down navigates to next page
           setPage((p) => p + 1);
         }
         break;
@@ -210,9 +285,8 @@ export function ProductGrid({
       case "ArrowUp": {
         e.preventDefault();
         if (index >= cols) {
-          focusItem(index - 1);
+          focusItem(index - cols);
         } else {
-          // At top row: move focus back up to search box
           activeSearchInputRef.current?.focus();
           setFocusedProductIndex(-1);
         }
@@ -250,20 +324,54 @@ export function ProductGrid({
     <div className="flex h-full flex-col gap-2.5 min-w-0 max-w-full overflow-hidden">
       {/* Top Search & Category Chips */}
       <div className="flex flex-col gap-2 shrink-0 min-w-0">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            ref={activeSearchInputRef}
-            placeholder="Search products, or scan barcode + Enter"
-            className="pl-9 pr-16 w-full"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={handleScan}
-            aria-keyshortcuts="/ F2 Alt+s"
-          />
-          <div className="absolute right-3 top-1/2 flex items-center gap-1.5 -translate-y-1/2 text-muted-foreground">
-            <ShortcutHint keyName={searchKeyDisplay} altKeyName="Alt+S" />
-            <Barcode className="size-4 opacity-70" />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              ref={activeSearchInputRef}
+              placeholder="Search products, or scan barcode + Enter"
+              className="pl-9 pr-16 w-full"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleScan}
+              aria-keyshortcuts="/ F2 Alt+s"
+            />
+            <div className="absolute right-3 top-1/2 flex items-center gap-1.5 -translate-y-1/2 text-muted-foreground">
+              <ShortcutHint keyName={searchKeyDisplay} altKeyName="Alt+S" />
+              <Barcode className="size-4 opacity-70" />
+            </div>
+          </div>
+
+          {/* List vs Tiles View Switcher */}
+          <div className="flex items-center gap-0.5 rounded-lg border bg-muted/60 p-0.5 shrink-0">
+            <Button
+              type="button"
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              className={cn(
+                "h-8 px-2.5 gap-1.5 text-xs font-medium",
+                viewMode === "list" && "bg-background shadow-xs text-foreground",
+              )}
+              onClick={() => handleViewModeChange("list")}
+              title="List View"
+            >
+              <LayoutList className="size-3.5" />
+              <span className="hidden sm:inline">List</span>
+            </Button>
+            <Button
+              type="button"
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              className={cn(
+                "h-8 px-2.5 gap-1.5 text-xs font-medium",
+                viewMode === "grid" && "bg-background shadow-xs text-foreground",
+              )}
+              onClick={() => handleViewModeChange("grid")}
+              title="Tiles / Grid View"
+            >
+              <LayoutGrid className="size-3.5" />
+              <span className="hidden sm:inline">Tiles</span>
+            </Button>
           </div>
         </div>
 
@@ -279,84 +387,197 @@ export function ProductGrid({
         </div>
       </div>
 
-      {/* Product Cards Container - Vertical Scrolling Down, NEVER Horizontal */}
+      {/* Products Container */}
       <div
         role="region"
-        aria-label="Products Grid"
+        aria-label={viewMode === "list" ? "Products List" : "Products Grid"}
         className="flex-1 min-w-0 overflow-hidden rounded-xl border bg-background p-3 flex flex-col justify-between"
       >
-        {/* Scrollable Downwards Container */}
+        {/* Sticky List Table Header (only for List view) */}
+        {viewMode === "list" && productItems.length > 0 && !productsQuery.isLoading && (
+          <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 mb-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/60 bg-muted/30 rounded-md select-none shrink-0">
+            <span className="flex-1 min-w-0">Product / Code</span>
+            <span className="w-24 shrink-0 text-center sm:text-left">Stock</span>
+            <span className="w-28 shrink-0 text-right">Price</span>
+            <span className="w-9 shrink-0 text-right">Add</span>
+          </div>
+        )}
+
+        {/* Scrollable Container */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 pr-1 scrollbar-thin">
           {productsQuery.isLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5">
-              {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-                <Skeleton key={i} className="h-24 rounded-lg" />
-              ))}
-            </div>
+            viewMode === "list" ? (
+              <div className="flex flex-col gap-1.5">
+                {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5">
+                {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+                  <Skeleton key={i} className="h-24 rounded-lg" />
+                ))}
+              </div>
+            )
           ) : productItems.length > 0 ? (
-            <div
-              className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5"
-              role="grid"
-              aria-label="Product items"
-            >
-              {productItems.map((product, index) => {
-                const isOutOfStock = product.stockQuantity <= 0;
-                const isFocused = focusedProductIndex === index;
+            viewMode === "list" ? (
+              /* LIST VIEW */
+              <div className="flex flex-col gap-1.5" role="list" aria-label="Product list">
+                {productItems.map((product, index) => {
+                  const isOutOfStock = product.stockQuantity <= 0;
+                  const isLowStock = !isOutOfStock && product.stockQuantity <= product.reorderLevel;
+                  const isFocused = focusedProductIndex === index;
 
-                return (
-                  <button
-                    key={product.id}
-                    type="button"
-                    data-product-card="true"
-                    ref={(el) => {
-                      productButtonRefs.current[index] = el;
-                    }}
-                    tabIndex={isFocused || (focusedProductIndex === -1 && index === 0) ? 0 : -1}
-                    onClick={() => onSelect(product)}
-                    onFocus={() => setFocusedProductIndex(index)}
-                    onKeyDown={(e) => handleProductKeyDown(e, index, product)}
-                    disabled={isOutOfStock}
-                    className={cn(
-                      "group flex flex-col items-start gap-1 rounded-lg border bg-card p-2.5 text-left transition-all duration-150 min-h-[92px]",
-                      "hover:border-primary/50 hover:bg-accent",
-                      "focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:outline-none",
-                      isFocused && "ring-2 ring-primary border-primary bg-accent/60 shadow-sm",
-                      "disabled:cursor-not-allowed disabled:opacity-40",
-                    )}
-                  >
-                    <div className="flex w-full items-start justify-between gap-1.5">
-                      <span className="text-xs sm:text-sm font-medium leading-snug line-clamp-2 text-foreground">
-                        {product.name}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground flex-wrap">
-                      <span>{product.sku}</span>
-                      {product.brand && (
-                        <>
-                          <span>•</span>
-                          <span className="font-medium text-foreground/80 truncate max-w-[100px]">
-                            {product.brand}
-                          </span>
-                        </>
+                  return (
+                    <button
+                      key={product.id}
+                      type="button"
+                      data-product-card="true"
+                      ref={(el) => {
+                        productButtonRefs.current[index] = el;
+                      }}
+                      tabIndex={isFocused || (focusedProductIndex === -1 && index === 0) ? 0 : -1}
+                      onClick={() => onSelect(product)}
+                      onFocus={() => setFocusedProductIndex(index)}
+                      onKeyDown={(e) => handleProductKeyDown(e, index, product)}
+                      disabled={isOutOfStock}
+                      className={cn(
+                        "group flex w-full items-center gap-3 rounded-lg border border-border/50 bg-card px-3 py-2 text-left transition-all duration-150",
+                        "hover:border-primary/50 hover:bg-accent/60",
+                        "focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:outline-none",
+                        isFocused && "ring-2 ring-primary border-primary bg-accent/80 shadow-xs",
+                        "disabled:cursor-not-allowed disabled:opacity-40",
+                        index % 2 === 1 && "bg-muted/15",
                       )}
-                    </div>
+                    >
+                      {/* Product Details */}
+                      <div className="flex-1 min-w-0 pr-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="text-xs sm:text-sm font-medium leading-tight text-foreground truncate"
+                            title={product.name}
+                          >
+                            {product.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap mt-0.5">
+                          <span className="font-mono text-muted-foreground/85">{product.sku}</span>
+                          {product.barcode && (
+                            <>
+                              <span className="text-border">•</span>
+                              <span className="flex items-center gap-1 text-[10px] font-mono opacity-80">
+                                <Barcode className="size-3" />
+                                {product.barcode}
+                              </span>
+                            </>
+                          )}
+                          {product.brand && (
+                            <>
+                              <span className="text-border">•</span>
+                              <span className="truncate max-w-[110px] font-medium text-foreground/80">
+                                {product.brand}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
 
-                    <div className="mt-auto pt-1.5 flex w-full items-center justify-between gap-1">
-                      <span className="text-xs sm:text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
-                        {formatCurrency(product.retailPrice)}
-                      </span>
-                      <Badge
-                        variant={product.stockQuantity <= product.reorderLevel ? "destructive" : "secondary"}
-                        className="text-[9px] px-1 py-0 shrink-0 font-normal"
-                      >
-                        {product.stockQuantity} in stock
-                      </Badge>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      {/* Stock Badge */}
+                      <div className="w-24 shrink-0 flex items-center justify-center sm:justify-start">
+                        <Badge
+                          variant={isOutOfStock || isLowStock ? "destructive" : "secondary"}
+                          className={cn(
+                            "text-[10px] px-1.5 py-0.5 font-normal whitespace-nowrap",
+                            isLowStock && "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+                          )}
+                        >
+                          {isOutOfStock ? "Out of Stock" : `${product.stockQuantity} in stock`}
+                        </Badge>
+                      </div>
+
+                      {/* Unit Price */}
+                      <div className="w-28 shrink-0 text-right">
+                        <span className="text-xs sm:text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
+                          {formatCurrency(product.retailPrice)}
+                        </span>
+                      </div>
+
+                      {/* Action Button */}
+                      <div className="w-9 shrink-0 flex items-center justify-end">
+                        <div className="flex size-7 items-center justify-center rounded-md bg-muted text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground group-focus-visible:bg-primary group-focus-visible:text-primary-foreground transition-colors">
+                          <Plus className="size-3.5" />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              /* TILES / GRID VIEW */
+              <div
+                className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5"
+                role="grid"
+                aria-label="Product items"
+              >
+                {productItems.map((product, index) => {
+                  const isOutOfStock = product.stockQuantity <= 0;
+                  const isFocused = focusedProductIndex === index;
+
+                  return (
+                    <button
+                      key={product.id}
+                      type="button"
+                      data-product-card="true"
+                      ref={(el) => {
+                        productButtonRefs.current[index] = el;
+                      }}
+                      tabIndex={isFocused || (focusedProductIndex === -1 && index === 0) ? 0 : -1}
+                      onClick={() => onSelect(product)}
+                      onFocus={() => setFocusedProductIndex(index)}
+                      onKeyDown={(e) => handleProductKeyDown(e, index, product)}
+                      disabled={isOutOfStock}
+                      className={cn(
+                        "group flex flex-col items-start gap-1 rounded-lg border bg-card p-2.5 text-left transition-all duration-150 min-h-[92px]",
+                        "hover:border-primary/50 hover:bg-accent",
+                        "focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:outline-none",
+                        isFocused && "ring-2 ring-primary border-primary bg-accent/60 shadow-sm",
+                        "disabled:cursor-not-allowed disabled:opacity-40",
+                      )}
+                    >
+                      <div className="flex w-full items-start justify-between gap-1.5">
+                        <span className="text-xs sm:text-sm font-medium leading-snug line-clamp-2 text-foreground">
+                          {product.name}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground flex-wrap">
+                        <span>{product.sku}</span>
+                        {product.brand && (
+                          <>
+                            <span>•</span>
+                            <span className="font-medium text-foreground/80 truncate max-w-[100px]">
+                              {product.brand}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="mt-auto pt-1.5 flex w-full items-center justify-between gap-1">
+                        <span className="text-xs sm:text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
+                          {formatCurrency(product.retailPrice)}
+                        </span>
+                        <Badge
+                          variant={product.stockQuantity <= product.reorderLevel ? "destructive" : "secondary"}
+                          className="text-[9px] px-1 py-0 shrink-0 font-normal"
+                        >
+                          {product.stockQuantity} in stock
+                        </Badge>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )
           ) : (
             <div className="flex h-64 flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
               <PackageX className="size-8" />
