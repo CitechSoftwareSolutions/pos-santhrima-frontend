@@ -851,7 +851,7 @@ function SettingsContent() {
                         id="shift-switch"
                         checked={storeForm.cashierSalesShiftEnabled ?? true}
                         onCheckedChange={(checked) =>
-                          setStoreForm({ ...storeForm, cashierSalesShiftEnabled: checked })
+                          setStoreForm((prev) => ({ ...prev, cashierSalesShiftEnabled: checked }))
                         }
                       />
                     </div>
@@ -875,10 +875,10 @@ function SettingsContent() {
                         placeholder="60000"
                         value={storeForm.cashierSalesShiftThreshold ?? "60000"}
                         onChange={(e) =>
-                          setStoreForm({
-                            ...storeForm,
+                          setStoreForm((prev) => ({
+                            ...prev,
                             cashierSalesShiftThreshold: parseFloat(e.target.value) || 0,
-                          })
+                          }))
                         }
                       />
                       <p className="text-[11px] text-muted-foreground">

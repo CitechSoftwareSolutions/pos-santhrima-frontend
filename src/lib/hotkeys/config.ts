@@ -184,10 +184,6 @@ export function assignCategoryKeys(
         code: assignedCode,
         displayKey: keyCodeToDisplay(assignedCode),
       });
-    } else {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn(`[Hotkeys] Could not assign unique key to category: "${cat.name}"`);
-      }
     }
   }
 

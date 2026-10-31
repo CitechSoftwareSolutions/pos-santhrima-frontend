@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import { Menu, Moon, Sun, LogOut, User, Settings, Database, Store as StoreIcon } from "lucide-react";
@@ -36,17 +36,31 @@ function initials(name: string) {
 export function Topbar() {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const isDarkMode = resolvedTheme === "dark" || theme === "dark";
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDarkMode = mounted && (typeof document !== "undefined" && document.documentElement.classList.contains("dark"));
 
   function handleThemeToggle() {
-    const nextTheme = isDarkMode ? "light" : "dark";
+    const currentlyDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+    const nextTheme = currentlyDark ? "light" : "dark";
+    
+    if (typeof document !== "undefined") {
+      if (nextTheme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
+
     setTheme(nextTheme);
 
-    // Invalidate all active queries so data from the other database loads immediately
     setTimeout(() => {
       queryClient.invalidateQueries();
       if (nextTheme === "dark") {
@@ -58,7 +72,7 @@ export function Topbar() {
           description: "Active counter sales and store operations loaded from the Normal database.",
         });
       }
-    }, 50);
+    }, 60);
   }
 
   return (
