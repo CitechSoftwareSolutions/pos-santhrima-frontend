@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Calendar, Receipt, Search, X, Users, Monitor, RotateCcw } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -19,8 +19,9 @@ import {
 } from "@/components/ui/select";
 import { useSales } from "@/lib/hooks/use-sales";
 import { useUsers } from "@/lib/hooks/use-auth";
-import { useTerminals } from "@/lib/hooks/use-terminals";
+import { useActiveTerminal } from "@/lib/hooks/use-active-terminal";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
+import { useAuthStore } from "@/store/auth-store";
 import { SaleDetailDialog } from "@/components/sales/sale-detail-dialog";
 import {
   formatCurrency,
@@ -32,33 +33,88 @@ import {
 import { cn } from "@/lib/utils";
 
 export default function SalesPage() {
+  const currentUser = useAuthStore((s) => s.user);
+  const { activeTerminal, terminals, assignedId } = useActiveTerminal();
+
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilterPreset>("today");
-  const [cashierId, setCashierId] = useState<string>("all");
-  const [terminalId, setTerminalId] = useState<string>("all");
+  const [cashierId, setCashierId] = useState<string>(() => currentUser?.id ?? "all");
+  const [initializedDefaultUser, setInitializedDefaultUser] = useState<boolean>(() => Boolean(currentUser?.id));
+
+  const [terminalId, setTerminalId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return localStorage.getItem("pos_assigned_terminal_id") || "all";
+      } catch {}
+    }
+    return "all";
+  });
+  const [initializedDefaultTerminal, setInitializedDefaultTerminal] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return Boolean(localStorage.getItem("pos_assigned_terminal_id"));
+      } catch {}
+    }
+    return false;
+  });
+
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const debouncedSearch = useDebouncedValue(search, 300);
 
+  // If currentUser was not available initially (e.g. hydration delay), initialize once
+  useEffect(() => {
+    if (!initializedDefaultUser && currentUser?.id) {
+      setCashierId(currentUser.id);
+      setInitializedDefaultUser(true);
+    }
+  }, [currentUser?.id, initializedDefaultUser]);
+
+  // If assigned counter ID was not yet loaded into state, initialize once it's available
+  useEffect(() => {
+    if (!initializedDefaultTerminal && (activeTerminal?.id || assignedId)) {
+      setTerminalId(activeTerminal?.id || assignedId || "all");
+      setInitializedDefaultTerminal(true);
+    }
+  }, [activeTerminal?.id, assignedId, initializedDefaultTerminal]);
+
   const users = useUsers();
-  const terminals = useTerminals(true);
+  const currentCounterId = activeTerminal?.id || assignedId;
 
   const cashierOptions = useMemo(() => {
-    return [
+    const baseUsers = users.data ?? [];
+    const list = [
       { value: "all", label: "All Cashiers" },
-      ...(users.data?.map((u) => ({ value: u.id, label: u.fullName })) ?? []),
+      ...baseUsers.map((u) => ({
+        value: u.id,
+        label: u.id === currentUser?.id ? `${u.fullName} (You)` : u.fullName,
+      })),
     ];
-  }, [users.data]);
+    if (currentUser && !list.some((c) => c.value === currentUser.id)) {
+      list.push({ value: currentUser.id, label: `${currentUser.fullName} (You)` });
+    }
+    return list;
+  }, [users.data, currentUser]);
 
   const counterOptions = useMemo(() => {
-    return [
+    const list = [
       { value: "all", label: "All Counters" },
-      ...(terminals.data?.map((t) => ({
+      ...terminals.map((t) => ({
         value: t.id,
-        label: t.name || `Counter ${t.counterNumber}`,
-      })) ?? []),
+        label:
+          t.id === currentCounterId
+            ? `${t.name || `Counter ${t.counterNumber}`} (Current Counter)`
+            : (t.name || `Counter ${t.counterNumber}`),
+      })),
     ];
-  }, [terminals.data]);
+    if (activeTerminal && !list.some((ct) => ct.value === activeTerminal.id)) {
+      list.push({
+        value: activeTerminal.id,
+        label: `${activeTerminal.name || `Counter ${activeTerminal.counterNumber}`} (Current Counter)`,
+      });
+    }
+    return list;
+  }, [terminals, activeTerminal, currentCounterId]);
 
   const dateRange = useMemo(() => getDateFilterRange(dateFilter), [dateFilter]);
 
@@ -77,17 +133,20 @@ export default function SalesPage() {
     setPage(1);
   };
 
+  const defaultTerminalId = currentCounterId ?? "all";
+  const defaultCashierId = currentUser?.id ?? "all";
+
   const hasActiveFilters =
     search !== "" ||
-    cashierId !== "all" ||
-    terminalId !== "all" ||
+    cashierId !== defaultCashierId ||
+    terminalId !== defaultTerminalId ||
     dateFilter !== "today";
 
   const clearAllFilters = () => {
     setSearch("");
     setDateFilter("today");
-    setCashierId("all");
-    setTerminalId("all");
+    setCashierId(defaultCashierId);
+    setTerminalId(defaultTerminalId);
     setPage(1);
   };
 
