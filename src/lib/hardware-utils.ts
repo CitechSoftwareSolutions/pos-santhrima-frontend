@@ -60,14 +60,32 @@ export function triggerTestPrint(
         <title>Test Print - ${terminal.name}</title>
         <style>
           @page {
-            size: ${paperWidth} auto;
+            size: auto;
             margin: 0;
+          }
+          * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+            color: #000 !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
           }
           body {
             font-family: 'Courier New', Courier, monospace;
             width: ${containerWidth};
+            max-width: ${containerWidth};
             margin: 0 auto;
-            padding: 8px 4px;
+            padding: 8px 4px 18mm 4px;
             font-size: ${fontSize};
             line-height: 1.3;
             color: #000;
@@ -142,12 +160,24 @@ export function triggerTestPrint(
         <div class="divider"></div>
         <div class="text-center bold">STATUS: OK - READY TO SELL</div>
         <div class="divider"></div>
+
+        <!-- FEED BUFFER (Ensures bottom clears tear-bar/cutter) -->
+        <div style="height: 18mm; width: 100%;" aria-hidden="true"></div>
+
         <script>
           window.onload = function() {
             window.focus();
             window.print();
-            setTimeout(function() { window.close(); }, 800);
           };
+          window.onafterprint = function() {
+            setTimeout(function() {
+              try { window.close(); } catch(e) {}
+            }, 600);
+          };
+          // Safe fallback so print spooler is never aborted prematurely
+          setTimeout(function() {
+            try { window.close(); } catch(e) {}
+          }, 60000);
         </script>
       </body>
     </html>
