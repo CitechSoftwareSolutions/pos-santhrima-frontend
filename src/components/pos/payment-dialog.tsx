@@ -22,7 +22,6 @@ import { PaymentMethod, PaymentMethodLabels, type SaleDto } from "@/lib/types";
 import { useActiveTerminal } from "@/lib/hooks/use-active-terminal";
 import { useStoreSettings } from "@/lib/hooks/use-settings";
 import { printReceipt } from "@/lib/receipt-printer";
-import { ReceiptDialog } from "./receipt-dialog";
 
 const METHOD_OPTIONS = [
   PaymentMethod.Cash,
@@ -51,7 +50,6 @@ export function PaymentDialog({
 
   const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.Cash);
   const [amount, setAmount] = useState("");
-  const [completedSale, setCompletedSale] = useState<SaleDto | null>(null);
   const [prevOpen, setPrevOpen] = useState(open);
 
   if (open !== prevOpen) {
@@ -94,10 +92,10 @@ export function PaymentDialog({
       {
         onSuccess: (sale) => {
           toast.success(`Sale ${sale.saleNumber} completed`);
-          setCompletedSale(sale);
           closeBill(billId);
           onOpenChange(false);
-          if (activeTerminal?.autoPrintReceipt) {
+          const shouldPrint = activeTerminal?.autoPrintReceipt ?? true;
+          if (shouldPrint) {
             printReceipt(sale, { settings: settingsQuery.data, terminal: activeTerminal });
           }
         },
@@ -109,8 +107,7 @@ export function PaymentDialog({
   const earnedPointsEstimate = customerId ? Math.round(totalAmount * 0.001 * 100) / 100 : 0;
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Take Payment</DialogTitle>
@@ -213,16 +210,5 @@ export function PaymentDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <ReceiptDialog
-        sale={completedSale}
-        open={!!completedSale}
-        onOpenChange={(o) => {
-          if (!o) {
-            setCompletedSale(null);
-          }
-        }}
-      />
-    </>
   );
 }
