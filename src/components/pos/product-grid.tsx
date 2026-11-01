@@ -81,6 +81,23 @@ export function ProductGrid({
   const localSearchInputRef = useRef<HTMLInputElement | null>(null);
   const activeSearchInputRef = searchInputRef ?? localSearchInputRef;
 
+  // Auto-focus and select barcode search input on mount
+  useEffect(() => {
+    const doFocus = () => {
+      if (activeSearchInputRef.current) {
+        activeSearchInputRef.current.focus();
+        activeSearchInputRef.current.select();
+      }
+    };
+    doFocus();
+    const t1 = setTimeout(doFocus, 50);
+    const t2 = setTimeout(doFocus, 150);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [activeSearchInputRef]);
+
   const productButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [focusedProductIndex, setFocusedProductIndex] = useState<number>(-1);
 
@@ -129,9 +146,11 @@ export function ProductGrid({
           setSearch("");
         } else {
           toast.error(`No product found for "${search}"`);
+          activeSearchInputRef.current?.select();
         }
       } catch {
         toast.error(`Barcode scan failed for "${search}"`);
+        activeSearchInputRef.current?.select();
       }
       return;
     }
@@ -214,6 +233,7 @@ export function ProductGrid({
             focusItem(index - 1);
           } else {
             activeSearchInputRef.current?.focus();
+            activeSearchInputRef.current?.select();
             setFocusedProductIndex(-1);
           }
           break;
@@ -288,6 +308,7 @@ export function ProductGrid({
           focusItem(index - cols);
         } else {
           activeSearchInputRef.current?.focus();
+          activeSearchInputRef.current?.select();
           setFocusedProductIndex(-1);
         }
         break;
@@ -328,7 +349,9 @@ export function ProductGrid({
           <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              id="pos-barcode-search-input"
               ref={activeSearchInputRef}
+              autoFocus
               placeholder="Search products, or scan barcode + Enter"
               className="pl-9 pr-16 w-full"
               value={search}
