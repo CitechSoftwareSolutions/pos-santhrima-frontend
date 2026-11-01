@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
-import { Menu, Moon, Sun, LogOut, User, Settings } from "lucide-react";
+import { Menu, Moon, Sun, LogOut, User, Settings, Calendar, Clock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,8 +46,15 @@ export function Topbar() {
 
   const isTransferActive = settings?.cashierSalesShiftEnabled ?? true;
 
+  const [currentDateTime, setCurrentDateTime] = useState<Date | null>(null);
+
   useEffect(() => {
     setMounted(true);
+    setCurrentDateTime(new Date());
+    const timer = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const handleToggleTransfer = useCallback(() => {
@@ -116,6 +123,24 @@ export function Topbar() {
 
   const effectiveTransferActive = mounted ? isTransferActive : true;
 
+  const formattedDate = currentDateTime
+    ? currentDateTime.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "";
+
+  const formattedTime = currentDateTime
+    ? currentDateTime.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      })
+    : "";
+
   return (
     <header className="flex h-14 items-center justify-between gap-4 border-b bg-background px-4">
       <div className="flex items-center gap-2">
@@ -136,6 +161,19 @@ export function Topbar() {
       </div>
 
       <div className="flex items-center gap-2.5">
+        {/* Live Date and Time (Left side of Sync Status Dot) */}
+        {mounted && currentDateTime && (
+          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md bg-muted/40 border border-border/40 text-xs text-muted-foreground select-none">
+            <Calendar className="size-3.5 text-muted-foreground/70" />
+            <span className="font-medium text-foreground/80">{formattedDate}</span>
+            <span className="text-border">|</span>
+            <Clock className="size-3.5 text-muted-foreground/70" />
+            <span className="font-semibold text-foreground tabular-nums tracking-tight">
+              {formattedTime}
+            </span>
+          </div>
+        )}
+
         {/* Dual Database Transfer Status Dot next to Mode Switch Button */}
         <button
           type="button"
