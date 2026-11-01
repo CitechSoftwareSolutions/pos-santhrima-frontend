@@ -210,6 +210,7 @@ export function normalizeToKeyCode(keyOrCode: string): string | null {
   if (trimmed.toLowerCase() === "escape" || trimmed.toLowerCase() === "esc") return "Escape";
   if (trimmed.toLowerCase() === "space") return "Space";
   if (trimmed.toLowerCase() === "tab") return "Tab";
+  if (trimmed.toLowerCase() === "printscreen" || trimmed.toLowerCase() === "prtscr" || trimmed.toLowerCase() === "sysrq") return "PrintScreen";
   return null;
 }
 
@@ -231,6 +232,7 @@ export function keyCodeToDisplay(code: string): string {
   if (code === "Comma") return ",";
   if (code === "Period") return ".";
   if (code === "Backquote") return "`";
+  if (code === "PrintScreen") return "PrtScr";
   return code;
 }
 
@@ -345,6 +347,16 @@ export const GLOBAL_SHORTCUTS: ShortcutDefinition[] = [
     keyDisplay: "Esc",
     allowInInput: true,
     description: "1st press clears search; 2nd press blurs; closes modals",
+  },
+  {
+    id: "toggle-transfer",
+    label: "Toggle Dual DB Transfer",
+    group: "navigation",
+    codes: ["PrintScreen"],
+    keyDisplay: "PrtScr",
+    altDisplay: "SysRq",
+    allowInInput: true,
+    description: "Toggle automated sales data transfer to Admin database",
   },
 
   // Bills & Checkout
