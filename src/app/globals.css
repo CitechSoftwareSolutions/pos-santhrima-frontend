@@ -132,7 +132,7 @@
 @media print {
   @page {
     size: auto;
-    margin: 4mm;
+    margin: 0;
   }
 
   html,
@@ -141,6 +141,10 @@
     color: #000 !important;
     margin: 0 !important;
     padding: 0 !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   /* Hide regular page elements */
@@ -165,29 +169,37 @@
     max-width: 80mm !important;
     width: 80mm !important;
     max-height: none !important;
+    height: auto !important;
     overflow: visible !important;
     border: none !important;
     box-shadow: none !important;
     background: #fff !important;
     color: #000 !important;
-    padding: 0 !important;
+    padding: 0 0 18mm 0 !important;
     margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   #receipt-print-area {
     position: static !important;
     width: 100% !important;
     max-height: none !important;
+    height: auto !important;
     overflow: visible !important;
     color: #000 !important;
     background: #fff !important;
-    padding: 0 !important;
+    padding: 0 0 18mm 0 !important;
     margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   #receipt-print-area * {
     color: #000 !important;
     border-color: #000 !important;
     background: transparent !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }

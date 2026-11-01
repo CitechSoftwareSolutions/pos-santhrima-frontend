@@ -64,25 +64,32 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
         <title>Receipt - ${sale.saleNumber}</title>
         <style>
           @page {
-            size: ${paperWidth} auto;
+            size: auto;
             margin: 0;
           }
           * {
             box-sizing: border-box;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
           html, body {
-            margin: 0;
-            padding: 0;
+            margin: 0 !important;
+            padding: 0 !important;
             background: #fff !important;
             color: #000 !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
           }
           body {
             font-family: 'Nirmala UI', 'Courier New', Courier, monospace, sans-serif;
             width: ${containerWidth};
+            max-width: ${containerWidth};
             margin: 0 auto;
-            padding: 10px 4px;
+            padding: 8px 4px 18mm 4px;
             font-size: ${fontSize};
             line-height: 1.35;
           }
@@ -250,6 +257,9 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
           <div class="barcode-mock">||| | ||||| || |||| ||| |||</div>
           <div style="font-size: 10px; letter-spacing: 1px;">*${escapeHtml(sale.saleNumber)}*</div>
         </div>
+
+        <!-- FEED BUFFER (Ensures bottom of receipt clears physical tear-bar/cutter) -->
+        <div style="height: 18mm; width: 100%;" aria-hidden="true"></div>
       </body>
     </html>
   `;
@@ -266,6 +276,16 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
   iframe.style.pointerEvents = "none";
   document.body.appendChild(iframe);
 
+  const cleanup = () => {
+    try {
+      if (iframe.parentNode) {
+        document.body.removeChild(iframe);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const doc = iframe.contentWindow?.document;
   if (!doc) {
     // Fallback: popup window if iframe document is not accessible
@@ -275,11 +295,19 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
       win.document.write(html);
       win.document.close();
       win.focus();
+      win.addEventListener("afterprint", () => {
+        setTimeout(() => {
+          try { win.close(); } catch {}
+        }, 500);
+      });
       setTimeout(() => {
-        win.print();
-        setTimeout(() => win.close(), 1000);
+        try { win.print(); } catch {}
       }, 300);
+      setTimeout(() => {
+        try { win.close(); } catch {}
+      }, 60000);
     }
+    cleanup();
     return;
   }
 
@@ -287,22 +315,23 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
   doc.write(html);
   doc.close();
 
+  const win = iframe.contentWindow;
+  if (win) {
+    win.addEventListener("afterprint", () => {
+      setTimeout(cleanup, 1000);
+    });
+  }
+  // Safe fallback cleanup (60 seconds) so slow USB/spooler printing is never interrupted
+  setTimeout(cleanup, 60000);
+
   setTimeout(() => {
     try {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
     } catch {
       // ignore
-    } finally {
-      setTimeout(() => {
-        try {
-          document.body.removeChild(iframe);
-        } catch {
-          // ignore
-        }
-      }, 2000);
     }
-  }, 300);
+  }, 250);
 }
 
 function escapeHtml(str: string): string {
@@ -349,25 +378,32 @@ export function printRegisterSummaryReport(
         <title>Daily Counter Summary - ${summary.counterName}</title>
         <style>
           @page {
-            size: ${paperWidth} auto;
+            size: auto;
             margin: 0;
           }
           * {
             box-sizing: border-box;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+            page-break-inside: avoid;
+            break-inside: avoid;
           }
           html, body {
-            margin: 0;
-            padding: 0;
+            margin: 0 !important;
+            padding: 0 !important;
             background: #fff !important;
             color: #000 !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
           }
           body {
             font-family: 'Nirmala UI', 'Courier New', Courier, monospace, sans-serif;
             width: ${containerWidth};
+            max-width: ${containerWidth};
             margin: 0 auto;
-            padding: 10px 4px;
+            padding: 8px 4px 18mm 4px;
             font-size: ${fontSize};
             line-height: 1.35;
           }
@@ -478,6 +514,9 @@ export function printRegisterSummaryReport(
         <div class="text-center subtitle" style="margin-top: 6px;">
           Printed: ${new Date().toLocaleString()}
         </div>
+
+        <!-- FEED BUFFER (Ensures bottom of report clears physical tear-bar/cutter) -->
+        <div style="height: 18mm; width: 100%;" aria-hidden="true"></div>
       </body>
     </html>
   `;
@@ -489,7 +528,19 @@ export function printRegisterSummaryReport(
   iframe.style.width = "0";
   iframe.style.height = "0";
   iframe.style.border = "none";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
   document.body.appendChild(iframe);
+
+  const cleanup = () => {
+    try {
+      if (iframe.parentNode) {
+        document.body.removeChild(iframe);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const doc = iframe.contentWindow?.document;
   if (!doc) {
@@ -499,11 +550,19 @@ export function printRegisterSummaryReport(
       win.document.write(html);
       win.document.close();
       win.focus();
+      win.addEventListener("afterprint", () => {
+        setTimeout(() => {
+          try { win.close(); } catch {}
+        }, 500);
+      });
       setTimeout(() => {
-        win.print();
-        setTimeout(() => win.close(), 1000);
+        try { win.print(); } catch {}
       }, 300);
+      setTimeout(() => {
+        try { win.close(); } catch {}
+      }, 60000);
     }
+    cleanup();
     return;
   }
 
@@ -511,20 +570,20 @@ export function printRegisterSummaryReport(
   doc.write(html);
   doc.close();
 
+  const win = iframe.contentWindow;
+  if (win) {
+    win.addEventListener("afterprint", () => {
+      setTimeout(cleanup, 1000);
+    });
+  }
+  setTimeout(cleanup, 60000);
+
   setTimeout(() => {
     try {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
     } catch {
       // ignore
-    } finally {
-      setTimeout(() => {
-        try {
-          document.body.removeChild(iframe);
-        } catch {
-          // ignore
-        }
-      }, 2000);
     }
-  }, 300);
+  }, 250);
 }
