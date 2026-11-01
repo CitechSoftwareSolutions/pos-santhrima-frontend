@@ -11,6 +11,8 @@ import {
   LayoutList,
   LayoutGrid,
   Plus,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +37,8 @@ interface ProductGridProps {
   onCategoryChange?: (id: string, name: string) => void;
   categoryBindings?: CategoryKeyBinding[];
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
+  isRegisterOpen?: boolean;
+  onOpenRegister?: () => void;
 }
 
 const PAGE_SIZE = 12;
@@ -45,6 +49,8 @@ export function ProductGrid({
   onCategoryChange,
   categoryBindings = [],
   searchInputRef,
+  isRegisterOpen = true,
+  onOpenRegister,
 }: ProductGridProps) {
   const [internalCategoryId, setInternalCategoryId] = useState<string>("all");
   const categoryId = externalCategoryId ?? internalCategoryId;
@@ -139,6 +145,10 @@ export function ProductGrid({
   async function handleScan(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && search.trim()) {
       e.preventDefault();
+      if (isRegisterOpen === false) {
+        toast.error("Cash register is closed. Please click 'Open Register' to begin billing.");
+        return;
+      }
       try {
         const product = await productsApi.lookupByCode(search.trim());
         if (product) {
@@ -352,7 +362,11 @@ export function ProductGrid({
               id="pos-barcode-search-input"
               ref={activeSearchInputRef}
               autoFocus
-              placeholder="Search products, or scan barcode + Enter"
+              placeholder={
+                isRegisterOpen
+                  ? "Search products, or scan barcode + Enter"
+                  : "Register is closed. Click 'Open Register' to begin billing..."
+              }
               className="pl-9 pr-16 w-full"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -408,6 +422,29 @@ export function ProductGrid({
             resultCount={totalCount}
           />
         </div>
+
+        {/* Register Closed Notice */}
+        {!isRegisterOpen && (
+          <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+            <div className="flex items-center gap-2">
+              <Lock className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>
+                <strong>Register is closed.</strong> Bill adding is locked until you open the register.
+              </span>
+            </div>
+            {onOpenRegister && (
+              <Button
+                type="button"
+                size="sm"
+                className="h-6 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium gap-1 shrink-0 shadow-sm"
+                onClick={onOpenRegister}
+              >
+                <Unlock className="size-3" />
+                Open Register
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Products Container */}

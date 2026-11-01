@@ -33,7 +33,7 @@ import { getApiErrorMessage } from "@/lib/api/client";
 import { ShortcutHint } from "./shortcut-hint";
 import { useHotkeysStore } from "@/store/hotkeys-store";
 
-function BillTabs() {
+function BillTabs({ isRegisterOpen = true }: { isRegisterOpen?: boolean }) {
   const bills = useCartStore((s) => s.bills);
   const activeBillId = useCartStore((s) => s.activeBillId);
   const addBill = useCartStore((s) => s.addBill);
@@ -90,8 +90,15 @@ function BillTabs() {
           variant="ghost"
           size="sm"
           className="h-7 px-2 shrink-0 gap-1 text-xs"
-          onClick={addBill}
-          title={`New bill (Alt+${newBillDisplay})`}
+          onClick={() => {
+            if (!isRegisterOpen) {
+              toast.error("Cash register is closed. Please open the register first.");
+              return;
+            }
+            addBill();
+          }}
+          disabled={!isRegisterOpen}
+          title={isRegisterOpen ? `New bill (Alt+${newBillDisplay})` : "Register closed"}
           aria-keyshortcuts={`Alt+${newBillDisplay.toLowerCase()}`}
         >
           <Plus className="size-3.5" />
@@ -114,7 +121,7 @@ function BillTabs() {
   );
 }
 
-export function CartPanel() {
+export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean } = {}) {
   const activeBill = useActiveBill();
   const { lines, customerId, discountAmount, loyaltyPointsToRedeem } = activeBill;
   const removeLine = useCartStore((s) => s.removeLine);
@@ -170,7 +177,7 @@ export function CartPanel() {
       </div>
 
       <div className="shrink-0">
-        <BillTabs />
+        <BillTabs isRegisterOpen={isRegisterOpen} />
       </div>
 
       <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
@@ -269,8 +276,12 @@ export function CartPanel() {
         </div>
         {lines.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
-            <ShoppingCart className="size-8" />
-            <p className="text-sm">Cart is empty. Select products to begin.</p>
+            <ShoppingCart className="size-8 opacity-40" />
+            <p className="text-sm font-medium">
+              {isRegisterOpen
+                ? "Cart is empty. Select products to begin."
+                : "Register is closed. Click 'Open Register' to begin adding bills."}
+            </p>
           </div>
         ) : (
           <div className="divide-y">
@@ -484,8 +495,14 @@ export function CartPanel() {
           id="pos-charge-button"
           className="w-full gap-2"
           size="lg"
-          disabled={lines.length === 0}
-          onClick={() => setPaymentOpen(true)}
+          disabled={lines.length === 0 || !isRegisterOpen}
+          onClick={() => {
+            if (!isRegisterOpen) {
+              toast.error("Cash register is closed. Please open register to take payments.");
+              return;
+            }
+            setPaymentOpen(true);
+          }}
           aria-keyshortcuts="F9 Control+Enter"
         >
           <span>Charge {formatCurrency(totals.totalAmount)}</span>

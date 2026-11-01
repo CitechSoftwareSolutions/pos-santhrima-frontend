@@ -629,5 +629,53 @@ export interface AuthorizeSwitchRequest {
   password: string;
 }
 
+// ---------- Register Sessions & Counter Summary ----------
+export interface RegisterSessionDto {
+  id: string;
+  terminalId: string;
+  terminalName?: string | null;
+  counterNumber?: number | null;
+  terminalCode?: string | null;
+  cashierId: string;
+  cashierName: string;
+  openedAt: string;
+  closedAt?: string | null;
+  status: "Open" | "Closed";
+  notes?: string | null;
+}
+
+export interface OpenRegisterRequest {
+  terminalId: string;
+  notes?: string | null;
+}
+
+export interface CloseRegisterRequest {
+  terminalId: string;
+  notes?: string | null;
+}
+
+export interface PaymentMethodSummaryDto {
+  methodName: string;
+  methodValue: number;
+  totalAmount: number;
+  transactionCount: number;
+}
+
+export interface CounterDailySummaryDto {
+  terminalId?: string | null;
+  counterNumber?: number | null;
+  counterName: string;
+  terminalCode?: string | null;
+  cashierName: string;
+  openedAt: string;
+  closedAt: string;
+  totalSalesCount: number;
+  subTotal: number;
+  totalDiscount: number;
+  totalTax: number;
+  totalRevenue: number;
+  paymentMethods: PaymentMethodSummaryDto[];
+}
+
 export * from "./cheques";
 
