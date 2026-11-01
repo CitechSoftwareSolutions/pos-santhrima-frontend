@@ -1,5 +1,11 @@
 import { formatCurrency, formatDate } from "./format";
-import { PaymentMethodLabels, type SaleDto, type StoreSettingsDto, type TerminalDto } from "./types";
+import {
+  PaymentMethodLabels,
+  type SaleDto,
+  type StoreSettingsDto,
+  type TerminalDto,
+  type CounterDailySummaryDto,
+} from "./types";
 
 interface PrintReceiptOptions {
   settings?: StoreSettingsDto | null;
@@ -306,4 +312,219 @@ function escapeHtml(str: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+export function printRegisterSummaryReport(
+  summary: CounterDailySummaryDto,
+  options?: PrintReceiptOptions
+) {
+  if (typeof window === "undefined") return;
+
+  const { settings, terminal } = options || {};
+  const paperWidth = terminal?.paperWidth || settings?.defaultPaperWidth || "80mm";
+  const is58mm = paperWidth === "58mm";
+  const containerWidth = is58mm ? "48mm" : "74mm";
+  const fontSize = is58mm ? "11px" : "12px";
+
+  const storeName = settings?.storeName || "සන්ත්‍රිමා ස්ටෝර්ස්";
+  const storeAddress = settings?.storeAddress || "";
+  const storePhone = settings?.storePhone || "";
+
+  const paymentMethodsHtml = summary.paymentMethods
+    .map(
+      (pm) => `
+      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+        <span>${escapeHtml(pm.methodName)} (${pm.transactionCount}):</span>
+        <span style="font-weight: 600;">${formatCurrency(pm.totalAmount)}</span>
+      </div>
+    `
+    )
+    .join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Daily Counter Summary - ${summary.counterName}</title>
+        <style>
+          @page {
+            size: ${paperWidth} auto;
+            margin: 0;
+          }
+          * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          html, body {
+            margin: 0;
+            padding: 0;
+            background: #fff !important;
+            color: #000 !important;
+          }
+          body {
+            font-family: 'Nirmala UI', 'Courier New', Courier, monospace, sans-serif;
+            width: ${containerWidth};
+            margin: 0 auto;
+            padding: 10px 4px;
+            font-size: ${fontSize};
+            line-height: 1.35;
+          }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .bold { font-weight: 700; }
+          .title { font-size: ${is58mm ? "13px" : "15px"}; font-weight: 700; line-height: 1.2; }
+          .subtitle { font-size: 11px; margin-top: 2px; }
+          .report-tag {
+            font-size: ${is58mm ? "11px" : "12px"};
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 4px 0;
+          }
+          .divider {
+            border-bottom: 1px dashed #000;
+            margin: 6px 0;
+          }
+          .double-divider {
+            border-bottom: 2px solid #000;
+            margin: 6px 0;
+          }
+          .row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: ${is58mm ? "13px" : "14px"};
+            font-weight: 700;
+            padding: 4px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="text-center">
+          <div class="title">${escapeHtml(storeName)}</div>
+          ${storeAddress ? `<div class="subtitle">${escapeHtml(storeAddress)}</div>` : ""}
+          ${storePhone ? `<div class="subtitle">Tel: ${escapeHtml(storePhone)}</div>` : ""}
+          <div class="report-tag">Daily Counter Summary</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <span>Counter:</span>
+          <span class="bold">${escapeHtml(summary.counterName)} ${summary.terminalCode ? `(${escapeHtml(summary.terminalCode)})` : ""}</span>
+        </div>
+        <div class="row">
+          <span>Cashier:</span>
+          <span>${escapeHtml(summary.cashierName)}</span>
+        </div>
+        <div class="row">
+          <span>Opened:</span>
+          <span>${formatDate(summary.openedAt)}</span>
+        </div>
+        <div class="row">
+          <span>Closed:</span>
+          <span>${formatDate(summary.closedAt)}</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <span>Total Bills:</span>
+          <span class="bold">${summary.totalSalesCount}</span>
+        </div>
+        <div class="row">
+          <span>Gross Sales:</span>
+          <span>${formatCurrency(summary.subTotal)}</span>
+        </div>
+        ${
+          summary.totalDiscount > 0
+            ? `
+        <div class="row">
+          <span>Total Discount:</span>
+          <span>-${formatCurrency(summary.totalDiscount)}</span>
+        </div>`
+            : ""
+        }
+        ${
+          summary.totalTax > 0
+            ? `
+        <div class="row">
+          <span>Total Tax:</span>
+          <span>${formatCurrency(summary.totalTax)}</span>
+        </div>`
+            : ""
+        }
+
+        <div class="divider"></div>
+        <div class="total-row">
+          <span>NET REVENUE:</span>
+          <span>${formatCurrency(summary.totalRevenue)}</span>
+        </div>
+        <div class="divider"></div>
+
+        <div class="bold" style="font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">
+          Payments by Method:
+        </div>
+        ${paymentMethodsHtml}
+
+        <div class="double-divider"></div>
+
+        <div class="text-center subtitle" style="margin-top: 6px;">
+          Printed: ${new Date().toLocaleString()}
+        </div>
+      </body>
+    </html>
+  `;
+
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.top = "-9999px";
+  iframe.style.left = "-9999px";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "none";
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) {
+    const win = window.open("", "_blank", "width=400,height=600");
+    if (win) {
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => {
+        win.print();
+        setTimeout(() => win.close(), 1000);
+      }, 300);
+    }
+    return;
+  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch {
+      // ignore
+    } finally {
+      setTimeout(() => {
+        try {
+          document.body.removeChild(iframe);
+        } catch {
+          // ignore
+        }
+      }, 2000);
+    }
+  }, 300);
 }

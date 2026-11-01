@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { toast } from "sonner";
-import { Monitor, Lock, Wrench, Keyboard } from "lucide-react";
+import { Monitor, Lock, Unlock, Wrench, Keyboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { CartPanel } from "@/components/pos/cart-panel";
@@ -11,13 +11,18 @@ import { AssignCounterModal } from "@/components/pos/assign-counter-modal";
 import { HardwareTestModal } from "@/components/pos/hardware-test-modal";
 import { ShortcutsDialog } from "@/components/pos/shortcuts-dialog";
 import { ShortcutHint } from "@/components/pos/shortcut-hint";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { CounterSummaryDialog } from "@/components/pos/counter-summary-dialog";
 import { useCartStore, useActiveBill } from "@/store/cart-store";
 import { useHotkeysStore } from "@/store/hotkeys-store";
 import { useActiveTerminal } from "@/lib/hooks/use-active-terminal";
 import { useCategories } from "@/lib/hooks/use-categories";
 import { usePosHotkeys } from "@/hooks/use-hotkeys";
 import { assignCategoryKeys } from "@/lib/hotkeys/config";
-import type { ProductDto } from "@/lib/types";
+import { useCurrentRegister, useOpenRegister, useCloseRegister } from "@/lib/hooks/use-register";
+import { getApiErrorMessage } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
+import type { ProductDto, CounterDailySummaryDto } from "@/lib/types";
 
 export default function PosPage() {
   const addLine = useCartStore((s) => s.addLine);
@@ -35,6 +40,17 @@ export default function PosPage() {
   const { activeTerminal, storeSettings, hasNoStoredTerminal, effectivePaperWidth } = useActiveTerminal();
   const [switchCounterOpen, setSwitchCounterOpen] = useState(false);
   const [hardwareTestOpen, setHardwareTestOpen] = useState(false);
+
+  // Register Session Management
+  const currentRegisterQuery = useCurrentRegister(activeTerminal?.id);
+  const openRegisterMutation = useOpenRegister();
+  const closeRegisterMutation = useCloseRegister();
+
+  const isRegisterOpen = currentRegisterQuery.data?.status === "Open";
+
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [summaryData, setSummaryData] = useState<CounterDailySummaryDto | null>(null);
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
 
   const categoryKeys = useHotkeysStore((s) => s.categoryKeys);
   const syncFromStoreSettings = useHotkeysStore((s) => s.syncFromStoreSettings);
@@ -141,6 +157,10 @@ export default function PosPage() {
       }
     },
     onNewBill: () => {
+      if (!isRegisterOpen) {
+        toast.error("Cash register is closed. Please click 'Open Register' to begin billing.");
+        return;
+      }
       addBill();
       focusBarcodeSearch();
     },
@@ -152,13 +172,62 @@ export default function PosPage() {
       }
     },
     onCharge: () => {
+      if (!isRegisterOpen) {
+        toast.error("Cash register is closed. Please click 'Open Register' to begin billing.");
+        return;
+      }
       const chargeBtn = document.getElementById("pos-charge-button");
       chargeBtn?.click();
     },
     isCartEmpty: activeBill.lines.length === 0,
   });
 
+  const handleOpenRegister = useCallback(() => {
+    if (!activeTerminal?.id) {
+      toast.error("Please assign a counter first.");
+      return;
+    }
+    openRegisterMutation.mutate(
+      { terminalId: activeTerminal.id },
+      {
+        onSuccess: () => {
+          toast.success("Cash register opened! Billing operations are now active.");
+          focusBarcodeSearch();
+        },
+        onError: (err) => {
+          toast.error(getApiErrorMessage(err));
+        },
+      }
+    );
+  }, [activeTerminal?.id, openRegisterMutation, focusBarcodeSearch]);
+
+  const handleCloseRegisterClick = useCallback(() => {
+    setConfirmCloseOpen(true);
+  }, []);
+
+  const handleCloseRegisterConfirm = useCallback(() => {
+    if (!activeTerminal?.id) return;
+    closeRegisterMutation.mutate(
+      { terminalId: activeTerminal.id },
+      {
+        onSuccess: (data) => {
+          setConfirmCloseOpen(false);
+          setSummaryData(data);
+          setSummaryDialogOpen(true);
+          toast.success("Register closed. Today's counter summary is ready.");
+        },
+        onError: (err) => {
+          toast.error(getApiErrorMessage(err));
+        },
+      }
+    );
+  }, [activeTerminal?.id, closeRegisterMutation]);
+
   function handleSelect(product: ProductDto) {
+    if (!isRegisterOpen) {
+      toast.error("Cash register is closed. Please click 'Open Register' to begin billing.");
+      return;
+    }
     if (product.stockQuantity <= 0) {
       toast.error(`${product.name} is out of stock.`);
       return;
@@ -195,6 +264,25 @@ export default function PosPage() {
           <p className="hidden sm:inline text-[11px] text-muted-foreground">
             Printer: {activeTerminal?.printerType || "None"} ({effectivePaperWidth})
           </p>
+
+          {activeTerminal && (
+            <span
+              className={cn(
+                "hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ml-1",
+                isRegisterOpen
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "border-border bg-muted/60 text-muted-foreground"
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  isRegisterOpen ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"
+                )}
+              />
+              {isRegisterOpen ? "Register Open" : "Register Closed"}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -222,6 +310,33 @@ export default function PosPage() {
             <Wrench className="size-3" />
             Test Hardware
           </Button>
+
+          {/* Open / Close Register Button (between Test Hardware and Switch) */}
+          {isRegisterOpen ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5 border-amber-500/40 text-amber-700 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-500/20 font-semibold"
+              onClick={handleCloseRegisterClick}
+              disabled={closeRegisterMutation.isPending}
+              title="Close cashier register and view today's counter summary"
+            >
+              <Lock className="size-3 text-amber-600 dark:text-amber-400" />
+              <span>{closeRegisterMutation.isPending ? "Closing..." : "Close Register"}</span>
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="h-7 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+              onClick={handleOpenRegister}
+              disabled={!activeTerminal || openRegisterMutation.isPending}
+              title="Open register to enable billing and product additions"
+            >
+              <Unlock className="size-3" />
+              <span>{openRegisterMutation.isPending ? "Opening..." : "Open Register"}</span>
+            </Button>
+          )}
+
           <Button
             variant="ghost"
             size="sm"
@@ -243,10 +358,12 @@ export default function PosPage() {
             onCategoryChange={handleCategoryChange}
             categoryBindings={categoryBindings}
             searchInputRef={searchInputRef}
+            isRegisterOpen={isRegisterOpen}
+            onOpenRegister={handleOpenRegister}
           />
         </div>
         <div className="min-w-0 h-[calc(100vh-11.5rem)] min-h-[500px] overflow-hidden lg:sticky lg:top-0">
-          <CartPanel />
+          <CartPanel isRegisterOpen={isRegisterOpen} />
         </div>
 
         <AddToCartDialog
@@ -282,6 +399,30 @@ export default function PosPage() {
 
       {/* Keyboard Shortcuts Cheat-Sheet Modal */}
       <ShortcutsDialog categoryBindings={categoryBindings} />
+
+      {/* Confirm Close Register Dialog */}
+      <ConfirmDialog
+        open={confirmCloseOpen}
+        onOpenChange={setConfirmCloseOpen}
+        title={`Close Register - ${activeTerminal?.name || "Counter"}?`}
+        description={
+          activeBill.lines.length > 0
+            ? "You currently have unbilled items in the cart. Closing the register will close today's session and display today's counter payment summary."
+            : "Are you sure you want to close the register? Today's counter payment summary will be calculated and ready to print as a bill."
+        }
+        confirmLabel="Close Register"
+        destructive={false}
+        loading={closeRegisterMutation.isPending}
+        onConfirm={handleCloseRegisterConfirm}
+      />
+
+      {/* Today's Counter Summary & Bill Print Dialog */}
+      <CounterSummaryDialog
+        open={summaryDialogOpen}
+        onOpenChange={setSummaryDialogOpen}
+        summary={summaryData}
+        terminal={activeTerminal}
+      />
     </div>
   );
 }
