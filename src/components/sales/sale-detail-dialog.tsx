@@ -15,6 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReceiptView } from "@/components/pos/receipt-view";
 import { useSale, useVoidSale, useRefundSale } from "@/lib/hooks/use-sales";
+import { useStoreSettings } from "@/lib/hooks/use-settings";
+import { printReceipt } from "@/lib/receipt-printer";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { useAuthStore } from "@/store/auth-store";
 import { ROLES, SaleStatus } from "@/lib/types";
@@ -27,6 +29,7 @@ export function SaleDetailDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const sale = useSale(saleId ?? undefined);
+  const settingsQuery = useStoreSettings();
   const voidSale = useVoidSale();
   const refundSale = useRefundSale();
   const canManage = useAuthStore((s) => s.hasRole(ROLES.Admin, ROLES.Manager));
@@ -123,10 +126,18 @@ export function SaleDetailDialog({
               id="receipt-print-area"
               className="overflow-y-auto flex-1 max-h-[calc(88vh-6rem)] pr-1 print:max-h-none print:overflow-visible"
             >
-              <ReceiptView sale={sale.data} />
+              <ReceiptView sale={sale.data} settings={settingsQuery.data} />
             </div>
             <DialogFooter className="shrink-0 pt-2 border-t flex-wrap gap-2 print:hidden">
-              <Button variant="outline" size="sm" onClick={() => window.print()}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (sale.data) {
+                    printReceipt(sale.data, { settings: settingsQuery.data });
+                  }
+                }}
+              >
                 <Printer className="size-4" /> Print
               </Button>
               {canVoidOrRefund && (

@@ -29,6 +29,7 @@ import {
   Check,
   X,
   Sliders,
+  Database,
 } from "lucide-react";
 import { RequireRole } from "@/components/shared/require-role";
 import { ROLES, type StoreSettingsDto, type TerminalDto } from "@/lib/types";
@@ -375,6 +376,8 @@ function SettingsContent() {
         receiptFooter: storeForm.receiptFooter ?? "",
         defaultPaperWidth: storeForm.defaultPaperWidth ?? "80mm",
         hotkeyBindingsJson: storeForm.hotkeyBindingsJson ?? (settingsQuery.data?.hotkeyBindingsJson || null),
+        cashierSalesShiftThreshold: Number(storeForm.cashierSalesShiftThreshold) || 60000,
+        cashierSalesShiftEnabled: storeForm.cashierSalesShiftEnabled ?? true,
       },
       {
         onSuccess: () => toast.success("Store and Loyalty settings saved successfully"),
@@ -828,6 +831,73 @@ function SettingsContent() {
                       onChange={(e) => setStoreForm({ ...storeForm, receiptFooter: e.target.value })}
                       className="font-mono text-xs"
                     />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 3: Dual Database & Cashier Sales Shifting */}
+              <Card className="lg:col-span-2 border-border/80 shadow-xs">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Database className="size-5 text-indigo-500" />
+                      Dual Database & Cashier Sales Threshold Shifting
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="shift-switch" className="text-xs font-medium cursor-pointer">
+                        {storeForm.cashierSalesShiftEnabled ?? true ? "Auto-Shift Active" : "Disabled"}
+                      </Label>
+                      <Switch
+                        id="shift-switch"
+                        checked={storeForm.cashierSalesShiftEnabled ?? true}
+                        onCheckedChange={(checked) =>
+                          setStoreForm((prev) => ({ ...prev, cashierSalesShiftEnabled: checked }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <CardDescription className="text-xs">
+                    Configure automated shifting of cashier sales to the Admin database upon reaching a cumulative daily sales milestone.
+                  </CardDescription>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="shift-threshold" className="text-xs font-semibold">
+                        Cashier Sales Threshold (Rs.)
+                      </Label>
+                      <Input
+                        id="shift-threshold"
+                        type="number"
+                        step="1000"
+                        min="1000"
+                        placeholder="60000"
+                        value={storeForm.cashierSalesShiftThreshold ?? "60000"}
+                        onChange={(e) =>
+                          setStoreForm((prev) => ({
+                            ...prev,
+                            cashierSalesShiftThreshold: parseFloat(e.target.value) || 0,
+                          }))
+                        }
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        When any cashier reaches this total (default: Rs. 60,000), completed sales are automatically transferred into the Admin database and cleared from the Normal database.
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-xs">
+                      <div className="font-semibold text-foreground flex items-center gap-1.5">
+                        <Sparkles className="size-4 text-amber-500" />
+                        Dual Database Navigation
+                      </div>
+                      <p className="text-muted-foreground leading-relaxed">
+                        • <strong className="text-foreground">Light Mode:</strong> Connected to the <span className="font-medium text-emerald-600">Normal Store Database</span> for real-time cashier checkout and billing.
+                      </p>
+                      <p className="text-muted-foreground leading-relaxed">
+                        • <strong className="text-foreground">Dark Mode:</strong> Connected to the <span className="font-medium text-amber-500">Admin Database</span> for reviewing shifted sales, historical records, and consolidated management reports.
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

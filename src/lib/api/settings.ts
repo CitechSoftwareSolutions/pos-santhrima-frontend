@@ -6,4 +6,14 @@ export const settingsApi = {
 
   update: (data: UpdateStoreSettingsRequest) =>
     apiClient.put<StoreSettingsDto>("/settings", data).then((r) => r.data),
+
+  toggleSalesShift: (enabled?: boolean) =>
+    apiClient
+      .post<StoreSettingsDto>(
+        "/settings/toggle-sales-shift",
+        null,
+        enabled !== undefined ? { params: { enabled } } : undefined
+      )
+      .then((r) => r.data),
 };
+

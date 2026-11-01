@@ -14,6 +14,14 @@ apiClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  if (typeof window !== "undefined") {
+    const isDark =
+      document.documentElement.classList.contains("dark") ||
+      localStorage.getItem("theme") === "dark";
+    config.headers["X-Database-Context"] = isDark ? "admin" : "normal";
+  }
+
   return config;
 });
 

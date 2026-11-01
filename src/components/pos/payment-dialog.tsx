@@ -20,6 +20,8 @@ import { getApiErrorMessage } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/format";
 import { PaymentMethod, PaymentMethodLabels, type SaleDto } from "@/lib/types";
 import { useActiveTerminal } from "@/lib/hooks/use-active-terminal";
+import { useStoreSettings } from "@/lib/hooks/use-settings";
+import { printReceipt } from "@/lib/receipt-printer";
 import { ReceiptDialog } from "./receipt-dialog";
 
 const METHOD_OPTIONS = [
@@ -45,6 +47,7 @@ export function PaymentDialog({
   const closeBill = useCartStore((s) => s.closeBill);
   const createSale = useCreateSale();
   const { activeTerminal } = useActiveTerminal();
+  const settingsQuery = useStoreSettings();
 
   const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.Cash);
   const [amount, setAmount] = useState("");
@@ -94,6 +97,9 @@ export function PaymentDialog({
           setCompletedSale(sale);
           closeBill(billId);
           onOpenChange(false);
+          if (activeTerminal?.autoPrintReceipt) {
+            printReceipt(sale, { settings: settingsQuery.data, terminal: activeTerminal });
+          }
         },
         onError: (err) => toast.error(getApiErrorMessage(err)),
       },

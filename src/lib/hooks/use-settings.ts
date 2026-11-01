@@ -19,3 +19,15 @@ export function useUpdateStoreSettings() {
     },
   });
 }
+
+export function useToggleSalesShift() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (enabled?: boolean) => settingsApi.toggleSalesShift(enabled),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["settings"], data);
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+}
+
