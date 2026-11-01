@@ -56,16 +56,60 @@ export default function PosPage() {
     setCategoryId(id);
   }, []);
 
+  const focusBarcodeSearch = useCallback(() => {
+    const doFocus = () => {
+      const el =
+        searchInputRef.current ||
+        (document.getElementById("pos-barcode-search-input") as HTMLInputElement | null);
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    };
+
+    doFocus();
+    requestAnimationFrame(doFocus);
+    const t1 = setTimeout(doFocus, 50);
+    const t2 = setTimeout(doFocus, 150);
+    const t3 = setTimeout(doFocus, 300);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, []);
+
+  // 1. Auto-select barcode field when first entering POS section
+  useEffect(() => {
+    if (!hasNoStoredTerminal && !switchCounterOpen && !hardwareTestOpen) {
+      focusBarcodeSearch();
+    }
+  }, [hasNoStoredTerminal, switchCounterOpen, hardwareTestOpen, focusBarcodeSearch]);
+
+  // 2. Auto-select barcode field when active bill changes or items are added to bill
+  const prevLinesCountRef = useRef(activeBill.lines.length);
+  const prevBillIdRef = useRef(activeBill.id);
+
+  useEffect(() => {
+    if (activeBill.id !== prevBillIdRef.current) {
+      prevBillIdRef.current = activeBill.id;
+      prevLinesCountRef.current = activeBill.lines.length;
+      focusBarcodeSearch();
+      return;
+    }
+
+    if (activeBill.lines.length > prevLinesCountRef.current) {
+      focusBarcodeSearch();
+    }
+    prevLinesCountRef.current = activeBill.lines.length;
+  }, [activeBill.id, activeBill.lines.length, focusBarcodeSearch]);
+
   // Connect POS keyboard shortcuts engine
   usePosHotkeys({
     categoryBindings,
     onSelectCategory: handleCategoryChange,
-    onFocusSearch: () => {
-      if (searchInputRef.current) {
-        searchInputRef.current.focus();
-        searchInputRef.current.select();
-      }
-    },
+    onFocusSearch: focusBarcodeSearch,
     onClearSearch: () => {
       if (searchInputRef.current && searchInputRef.current.value.length > 0) {
         searchInputRef.current.value = "";
@@ -96,11 +140,15 @@ export default function PosPage() {
         input.select();
       }
     },
-    onNewBill: addBill,
+    onNewBill: () => {
+      addBill();
+      focusBarcodeSearch();
+    },
     onSwitchBillIndex: (index: number) => {
       if (bills[index]) {
         switchBill(bills[index].id);
         toast.info(`Switched to ${bills[index].label}`);
+        focusBarcodeSearch();
       }
     },
     onCharge: () => {
@@ -122,6 +170,7 @@ export default function PosPage() {
     if (!pendingProduct) return;
     addLine(pendingProduct, quantity, unitPrice);
     setPendingProduct(null);
+    focusBarcodeSearch();
   }
 
   return (
@@ -202,7 +251,12 @@ export default function PosPage() {
 
         <AddToCartDialog
           product={pendingProduct}
-          onOpenChange={(o) => !o && setPendingProduct(null)}
+          onOpenChange={(o) => {
+            if (!o) {
+              setPendingProduct(null);
+              focusBarcodeSearch();
+            }
+          }}
           onConfirm={handleConfirm}
         />
       </div>
@@ -210,14 +264,20 @@ export default function PosPage() {
       {/* Counter Selection on first launch or switch */}
       <AssignCounterModal
         open={hasNoStoredTerminal || switchCounterOpen}
-        onOpenChange={(o) => setSwitchCounterOpen(o)}
+        onOpenChange={(o) => {
+          setSwitchCounterOpen(o);
+          if (!o) focusBarcodeSearch();
+        }}
         isSwitching={switchCounterOpen}
       />
 
       {/* POS Screen Hardware Diagnostics */}
       <HardwareTestModal
         open={hardwareTestOpen}
-        onOpenChange={setHardwareTestOpen}
+        onOpenChange={(o) => {
+          setHardwareTestOpen(o);
+          if (!o) focusBarcodeSearch();
+        }}
       />
 
       {/* Keyboard Shortcuts Cheat-Sheet Modal */}
