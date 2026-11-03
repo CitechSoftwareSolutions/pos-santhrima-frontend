@@ -2,6 +2,7 @@
 
 import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { generateBarcodeSvg } from "@/lib/barcode-svg";
 import { PaymentMethodLabels, type SaleDto, type StoreSettingsDto } from "@/lib/types";
 import { useStoreSettings } from "@/lib/hooks/use-settings";
 
@@ -143,13 +144,20 @@ export function ReceiptView({
         )}
       </div>
 
-      {/* Footer & Barcode */}
-      <div className="pt-2 text-center border-t border-dashed border-current/30 space-y-1">
-        <p className="text-[11px] opacity-85">{receiptFooter}</p>
-        <div className="text-base font-bold tracking-[0.2em] select-none opacity-85">
-          |||| | ||||| || |||| ||| |||
-        </div>
-        <p className="text-[10px] tracking-wider opacity-75 font-mono">*{sale.saleNumber}*</p>
+      {/* Footer & Real Barcode */}
+      <div className="pt-2 text-center border-t border-dashed border-current/30 space-y-2">
+        {receiptFooter && <p className="text-[11px] opacity-85">{receiptFooter}</p>}
+        <div
+          className="flex justify-center py-1 bg-white rounded p-1"
+          dangerouslySetInnerHTML={{
+            __html: generateBarcodeSvg(sale.saleNumber, {
+              height: 42,
+              barWidth: 1.45,
+              showText: true,
+              fontSize: 10,
+            }),
+          }}
+        />
       </div>
     </div>
   );

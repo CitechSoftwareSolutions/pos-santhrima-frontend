@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate } from "./format";
+import { generateBarcodeSvg } from "./barcode-svg";
 import {
   PaymentMethodLabels,
   type SaleDto,
@@ -251,11 +252,17 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
 
         <div class="divider"></div>
 
-        <!-- FOOTER & BARCODE -->
-        <div class="text-center">
-          <div style="font-size: 11px; margin-bottom: 4px;">${escapeHtml(receiptFooter)}</div>
-          <div class="barcode-mock">||| | ||||| || |||| ||| |||</div>
-          <div style="font-size: 10px; letter-spacing: 1px;">*${escapeHtml(sale.saleNumber)}*</div>
+        <!-- FOOTER & REAL SCANNABLE CODE 128 BARCODE -->
+        <div class="text-center" style="margin-top: 6px;">
+          ${receiptFooter ? `<div style="font-size: 11px; margin-bottom: 6px;">${escapeHtml(receiptFooter)}</div>` : ""}
+          <div style="margin: 6px auto 0 auto; display: flex; justify-content: center;">
+            ${generateBarcodeSvg(sale.saleNumber, {
+              height: 44,
+              barWidth: is58mm ? 1.35 : 1.65,
+              showText: true,
+              fontSize: 10,
+            })}
+          </div>
         </div>
 
         <!-- FEED BUFFER (Ensures bottom of receipt clears physical tear-bar/cutter) -->
@@ -503,6 +510,15 @@ export function printReturnSlip(
             <span>Date</span>
           </div>
           <div style="height: 18px;"></div>
+        </div>
+
+        <div style="margin: 8px auto 0 auto; display: flex; justify-content: center;">
+          ${generateBarcodeSvg(sale.saleNumber, {
+            height: 38,
+            barWidth: is58mm ? 1.35 : 1.65,
+            showText: true,
+            fontSize: 10,
+          })}
         </div>
 
         <div class="text-center" style="margin-top: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase;">

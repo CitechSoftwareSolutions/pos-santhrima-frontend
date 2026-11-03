@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   Calendar,
@@ -92,6 +92,117 @@ export default function SalesPage() {
 
   const debouncedSearch = useDebouncedValue(search, 300);
 
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Auto-focus and select search input on mount and on window focus
+  useEffect(() => {
+    const doFocus = () => {
+      if (searchInputRef.current && !selectedSaleId && !saleIdToReturn && !saleToDelete) {
+        searchInputRef.current.focus();
+        searchInputRef.current.select();
+      }
+    };
+    doFocus();
+    const t1 = setTimeout(doFocus, 50);
+    const t2 = setTimeout(doFocus, 150);
+    const t3 = setTimeout(doFocus, 350);
+    const t4 = setTimeout(doFocus, 700);
+
+    window.addEventListener("focus", doFocus);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+      window.removeEventListener("focus", doFocus);
+    };
+  }, [selectedSaleId, saleIdToReturn, saleToDelete]);
+
+  // Global typing capture: When the user types anything on the keyboard (or scans with barcode scanner),
+  // automatically capture it into the search input even if the user didn't click on it!
+  useEffect(() => {
+    function handleGlobalKeyDown(e: KeyboardEvent) {
+      // If a modal dialog is open (Detail dialog, Return dialog, Delete dialog), do not intercept
+      if (selectedSaleId || saleIdToReturn || saleToDelete) return;
+
+      const activeEl = document.activeElement as HTMLElement | null;
+
+      // If user is already inside the search input, let native typing handle it
+      if (activeEl === searchInputRef.current) {
+        return;
+      }
+
+      // If user is typing inside another input/textarea, do not intercept
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.isContentEditable)
+      ) {
+        return;
+      }
+
+      // Ignore modifier keys / combinations (Ctrl+C, Ctrl+V, Alt+Tab, Meta, etc.)
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      // Ignore navigation and functional keys
+      if (
+        e.key === "Escape" ||
+        e.key === "Tab" ||
+        e.key === "Shift" ||
+        e.key === "Control" ||
+        e.key === "Alt" ||
+        e.key === "Meta" ||
+        e.key === "CapsLock" ||
+        e.key === "ArrowUp" ||
+        e.key === "ArrowDown" ||
+        e.key === "ArrowLeft" ||
+        e.key === "ArrowRight" ||
+        e.key.startsWith("F")
+      ) {
+        return;
+      }
+
+      // Printable single character (letters, numbers, dash, symbols)
+      if (e.key.length === 1) {
+        e.preventDefault();
+        const cleanChar = e.key.replace(/^\*+|\*+$/g, "");
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+        // If the search input previously had text that was selected, or if user starts typing fresh:
+        // Set search to the new character to start a fresh search!
+        setSearch(cleanChar);
+        setPage(1);
+        return;
+      }
+
+      // Backspace: focus the input and delete last char
+      if (e.key === "Backspace") {
+        e.preventDefault();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+        setSearch((prev) => prev.slice(0, -1));
+        setPage(1);
+        return;
+      }
+
+      // Enter key: focus the input
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+        setPage(1);
+        return;
+      }
+    }
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [selectedSaleId, saleIdToReturn, saleToDelete]);
+
   // If currentUser was not available initially (e.g. hydration delay), initialize once
   useEffect(() => {
     if (!initializedDefaultUser && currentUser?.id) {
@@ -148,14 +259,17 @@ export default function SalesPage() {
 
   const dateRange = useMemo(() => getDateFilterRange(dateFilter), [dateFilter]);
 
+  const isSearching = !!debouncedSearch?.trim();
+
   const sales = useSales({
     page,
     pageSize: 15,
     search: debouncedSearch || undefined,
-    dateFrom: dateRange.dateFrom,
-    dateTo: dateRange.dateTo,
-    cashierId: cashierId !== "all" ? cashierId : undefined,
-    terminalId: terminalId !== "all" ? terminalId : undefined,
+    // When searching by receipt # or barcode, search across all dates and counters so the sale is always found!
+    dateFrom: isSearching ? undefined : dateRange.dateFrom,
+    dateTo: isSearching ? undefined : dateRange.dateTo,
+    cashierId: isSearching ? undefined : (cashierId !== "all" ? cashierId : undefined),
+    terminalId: isSearching ? undefined : (terminalId !== "all" ? terminalId : undefined),
   });
 
   const handleFilterChange = (filter: DateFilterPreset) => {
@@ -238,15 +352,30 @@ export default function SalesPage() {
       {/* FILTER CONTROLS BAR */}
       <div className="mb-4 space-y-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          {/* Search Input */}
+          {/* Search Input with Auto-focus and Barcode Scanner Integration */}
           <div className="relative w-full lg:max-w-xs">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by receipt #..."
-              className="pl-9 pr-8"
+              ref={searchInputRef}
+              id="sales-search-input"
+              autoFocus
+              placeholder="Search or scan receipt #..."
+              className="pl-9 pr-8 ring-2 ring-primary border-primary focus:ring-2 focus:ring-primary shadow-xs transition-all font-mono text-sm bg-background"
               value={search}
+              onFocus={(e) => e.target.select()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const clean = search.trim().replace(/^\*+|\*+$/g, "");
+                  if (clean !== search) {
+                    setSearch(clean);
+                  }
+                  setPage(1);
+                }
+              }}
               onChange={(e) => {
-                setSearch(e.target.value);
+                const clean = e.target.value.replace(/^\*+|\*+$/g, "");
+                setSearch(clean);
                 setPage(1);
               }}
             />
