@@ -282,6 +282,19 @@ export interface SaleItemDto {
   promotionId: string | null;
   promotionName: string | null;
   promotionDiscountAmount: number;
+  returnedQuantity?: number;
+}
+
+export interface ReturnSaleItemRequest {
+  saleItemId: string;
+  quantity: number;
+  reason?: string;
+}
+
+export interface ReturnSaleRequest {
+  items: ReturnSaleItemRequest[];
+  refundPaymentMethod: PaymentMethod;
+  reason?: string;
 }
 
 export interface SalePaymentDto {
@@ -315,6 +328,7 @@ export interface SaleDto {
   notes: string | null;
   items: SaleItemDto[];
   payments: SalePaymentDto[];
+  refundedAmount?: number;
 }
 
 export interface SaleListItemDto {
@@ -328,6 +342,7 @@ export interface SaleListItemDto {
   totalAmount: number;
   status: SaleStatus;
   paymentStatus: PaymentStatus;
+  refundedAmount?: number;
 }
 
 export interface SaleQueryParams {

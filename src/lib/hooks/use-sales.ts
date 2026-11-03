@@ -59,3 +59,34 @@ export function useRefundSale() {
     },
   });
 }
+
+export function useProcessReturn() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: import("@/lib/types").ReturnSaleRequest;
+    }) => salesApi.processReturn(id, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["sales", variables.id] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
+}
+
+export function useDeleteSale() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => salesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
+}

@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate } from "./format";
+import { generateBarcodeSvg } from "./barcode-svg";
 import {
   PaymentMethodLabels,
   type SaleDto,
@@ -251,11 +252,17 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
 
         <div class="divider"></div>
 
-        <!-- FOOTER & BARCODE -->
-        <div class="text-center">
-          <div style="font-size: 11px; margin-bottom: 4px;">${escapeHtml(receiptFooter)}</div>
-          <div class="barcode-mock">||| | ||||| || |||| ||| |||</div>
-          <div style="font-size: 10px; letter-spacing: 1px;">*${escapeHtml(sale.saleNumber)}*</div>
+        <!-- FOOTER & REAL SCANNABLE CODE 128 BARCODE -->
+        <div class="text-center" style="margin-top: 6px;">
+          ${receiptFooter ? `<div style="font-size: 11px; margin-bottom: 6px;">${escapeHtml(receiptFooter)}</div>` : ""}
+          <div style="margin: 6px auto 0 auto; display: flex; justify-content: center;">
+            ${generateBarcodeSvg(sale.saleNumber, {
+              height: 44,
+              barWidth: is58mm ? 1.35 : 1.65,
+              showText: true,
+              fontSize: 10,
+            })}
+          </div>
         </div>
 
         <!-- FEED BUFFER (Ensures bottom of receipt clears physical tear-bar/cutter) -->
@@ -341,6 +348,244 @@ function escapeHtml(str: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+export interface ReturnSlipItem {
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  refundAmount: number;
+}
+
+export function printReturnSlip(
+  sale: SaleDto,
+  returnItems: ReturnSlipItem[],
+  totalRefund: number,
+  refundMethod: import("./types").PaymentMethod,
+  reason?: string,
+  options?: PrintReceiptOptions
+) {
+  if (typeof window === "undefined") return;
+
+  const { settings, terminal } = options || {};
+  const paperWidth = terminal?.paperWidth || settings?.defaultPaperWidth || "80mm";
+  const is58mm = paperWidth === "58mm";
+  const containerWidth = is58mm ? "48mm" : "74mm";
+  const fontSize = is58mm ? "11px" : "12px";
+
+  const storeName = settings?.storeName || "සන්ත්‍රිමා ස්ටෝර්ස්";
+  const storeAddress = settings?.storeAddress || "";
+  const storePhone = settings?.storePhone || "";
+
+  const counterName = sale.terminalName || terminal?.name || "";
+
+  const itemsHtml = returnItems
+    .map(
+      (item) => `
+      <div style="margin-bottom: 4px;">
+        <div style="font-weight: 600; word-break: break-word;">${escapeHtml(item.productName)}</div>
+        <div style="display: flex; justify-content: space-between; font-size: ${is58mm ? "10px" : "11px"}; color: #222;">
+          <span>${item.quantity} returned @ ${formatCurrency(item.unitPrice)}</span>
+          <span style="font-weight: 600;">-${formatCurrency(item.refundAmount)}</span>
+        </div>
+      </div>
+    `,
+    )
+    .join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Return Slip - ${sale.saleNumber}</title>
+        <style>
+          @page { size: auto; margin: 0; }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+            color: #000 !important;
+            height: auto !important;
+          }
+          body {
+            font-family: 'Nirmala UI', 'Courier New', Courier, monospace, sans-serif;
+            width: ${containerWidth};
+            max-width: ${containerWidth};
+            margin: 0 auto;
+            padding: 8px 4px 18mm 4px;
+            font-size: ${fontSize};
+            line-height: 1.35;
+          }
+          .text-center { text-align: center; }
+          .bold { font-weight: 700; }
+          .title { font-size: ${is58mm ? "14px" : "16px"}; font-weight: 700; line-height: 1.2; }
+          .subtitle { font-size: 11px; margin-top: 2px; }
+          .badge {
+            display: inline-block;
+            border: 1px solid #000;
+            padding: 2px 6px;
+            font-weight: 700;
+            font-size: ${is58mm ? "11px" : "12px"};
+            margin-top: 4px;
+            text-transform: uppercase;
+          }
+          .divider { border-bottom: 1px dashed #000; margin: 6px 0; }
+          .double-divider { border-bottom: 2px solid #000; margin: 6px 0; }
+          .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: ${is58mm ? "13px" : "15px"};
+            font-weight: 700;
+            padding: 4px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <!-- STORE BRANDING -->
+        <div class="text-center">
+          <div class="title">${escapeHtml(storeName)}</div>
+          ${storeAddress ? `<div class="subtitle">${escapeHtml(storeAddress)}</div>` : ""}
+          ${storePhone ? `<div class="subtitle">Tel: ${escapeHtml(storePhone)}</div>` : ""}
+          <div style="margin: 6px auto 3px auto; border: 2px solid #000; padding: 4px 6px; font-weight: 800; font-size: ${is58mm ? "12px" : "13px"}; letter-spacing: 0.5px; text-transform: uppercase; width: 95%;">
+            *** OFFICIAL RETURN SLIP ***
+          </div>
+          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">
+            CUSTOMER REFUND & CREDIT VOUCHER
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- SALE & RETURN METADATA -->
+        <div class="row">
+          <span>Orig Receipt #:</span>
+          <span class="bold">${escapeHtml(sale.saleNumber)}</span>
+        </div>
+        <div class="row">
+          <span>Return Date:</span>
+          <span>${formatDate(new Date().toISOString())}</span>
+        </div>
+        <div class="row">
+          <span>Cashier:</span>
+          <span>${escapeHtml(sale.cashierName)}</span>
+        </div>
+        ${counterName ? `<div class="row"><span>Counter:</span><span>${escapeHtml(counterName)}</span></div>` : ""}
+        ${sale.customerName ? `<div class="row"><span>Customer:</span><span class="bold">${escapeHtml(sale.customerName)}</span></div>` : ""}
+
+        <div class="divider"></div>
+
+        <!-- ITEMS HEADER -->
+        <div class="row bold" style="font-size: ${is58mm ? "10px" : "11px"}; text-transform: uppercase;">
+          <span>Returned Items</span>
+          <span>Refund</span>
+        </div>
+        <div class="divider" style="margin: 2px 0 4px 0;"></div>
+
+        <!-- ITEMS LIST -->
+        ${itemsHtml}
+
+        <div class="double-divider"></div>
+
+        <div class="total-row">
+          <span>TOTAL REFUND:</span>
+          <span>${formatCurrency(totalRefund)}</span>
+        </div>
+
+        <div class="double-divider"></div>
+
+        <div class="row">
+          <span>Refund Method:</span>
+          <span class="bold">${PaymentMethodLabels[refundMethod] || "Cash"}</span>
+        </div>
+        ${reason ? `<div class="row"><span>Reason:</span><span>${escapeHtml(reason)}</span></div>` : ""}
+
+        <div class="divider" style="margin-top: 12px;"></div>
+
+        <div style="margin-top: 16px; padding-top: 8px; border-top: 1px dotted #000;">
+          <div style="font-size: 10px; display: flex; justify-content: space-between;">
+            <span>Customer Signature</span>
+            <span>Date</span>
+          </div>
+          <div style="height: 18px;"></div>
+        </div>
+
+        <div style="margin: 8px auto 0 auto; display: flex; justify-content: center;">
+          ${generateBarcodeSvg(sale.saleNumber, {
+            height: 38,
+            barWidth: is58mm ? 1.35 : 1.65,
+            showText: true,
+            fontSize: 10,
+          })}
+        </div>
+
+        <div class="text-center" style="margin-top: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase;">
+          *** THIS IS A RETURN SLIP - NOT A SALE RECEIPT ***
+        </div>
+        <div class="text-center" style="margin-top: 2px; font-size: 9px; opacity: 0.8;">
+          Returned items have been restored to store inventory.
+        </div>
+
+        <div style="height: 18mm; width: 100%;" aria-hidden="true"></div>
+      </body>
+    </html>
+  `;
+
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "none";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
+  document.body.appendChild(iframe);
+
+  const cleanup = () => {
+    try {
+      if (iframe.parentNode) document.body.removeChild(iframe);
+    } catch {}
+  };
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) {
+    const win = window.open("", "_blank", "width=420,height=600");
+    if (win) {
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      win.addEventListener("afterprint", () => {
+        setTimeout(() => { try { win.close(); } catch {} }, 500);
+      });
+      setTimeout(() => { try { win.print(); } catch {} }, 300);
+      setTimeout(() => { try { win.close(); } catch {} }, 60000);
+    }
+    cleanup();
+    return;
+  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const win = iframe.contentWindow;
+  if (win) {
+    win.addEventListener("afterprint", () => {
+      setTimeout(cleanup, 1000);
+    });
+  }
+  setTimeout(cleanup, 60000);
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch {}
+  }, 250);
 }
 
 export function printRegisterSummaryReport(
