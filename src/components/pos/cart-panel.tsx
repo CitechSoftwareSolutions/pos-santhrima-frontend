@@ -325,31 +325,38 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{line.product.name}</p>
-                    {isEditingPrice ? (
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        autoFocus
-                        className="mt-0.5 h-6 w-24 text-xs"
-                        value={editingPriceValue}
-                        onChange={(e) => setEditingPriceValue(e.target.value)}
-                        onBlur={() => commitPrice(line.id)}
-                        onKeyDown={(e) => e.key === "Enter" && commitPrice(line.id)}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingPriceValue(String(line.unitPrice));
-                          setEditingPriceId(line.id);
-                        }}
-                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        {formatCurrency(line.unitPrice)} / {line.product.unit}
-                        <Pencil className="size-2.5" />
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap mt-0.5">
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        MRP: {formatCurrency(line.product.mrp ?? line.product.retailPrice)}
+                      </span>
+                      <span className="text-muted-foreground/40">•</span>
+                      {isEditingPrice ? (
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          autoFocus
+                          className="h-6 w-24 text-xs"
+                          value={editingPriceValue}
+                          onChange={(e) => setEditingPriceValue(e.target.value)}
+                          onBlur={() => commitPrice(line.id)}
+                          onKeyDown={(e) => e.key === "Enter" && commitPrice(line.id)}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingPriceValue(String(line.unitPrice));
+                            setEditingPriceId(line.id);
+                          }}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                          title="Click to edit selling price"
+                        >
+                          Price: {formatCurrency(line.unitPrice)} / {line.product.unit}
+                          <Pencil className="size-2.5" />
+                        </button>
+                      )}
+                    </div>
                     <div className="mt-1.5 flex items-center gap-1.5">
                       <Button
                         variant="outline"

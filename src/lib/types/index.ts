@@ -108,6 +108,7 @@ export interface ProductDto {
   categoryName: string;
   costPrice: number;
   retailPrice: number;
+  mrp?: number | null;
   wholesalePrice: number | null;
   specialPrice: number | null;
   taxRate: number;
@@ -131,6 +132,7 @@ export interface CreateProductRequest {
   categoryId: string;
   costPrice: number;
   retailPrice: number;
+  mrp?: number | null;
   wholesalePrice?: number | null;
   specialPrice?: number | null;
   taxRate: number;
@@ -151,6 +153,7 @@ export interface UpdateProductRequest {
   categoryId: string;
   costPrice: number;
   retailPrice: number;
+  mrp?: number | null;
   wholesalePrice?: number | null;
   specialPrice?: number | null;
   taxRate: number;
