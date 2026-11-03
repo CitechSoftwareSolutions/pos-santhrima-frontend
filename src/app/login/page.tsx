@@ -39,12 +39,6 @@ export default function LoginPage() {
     );
   }
 
-  if (!hydrated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4" />
-    );
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
       <div className="w-full max-w-sm space-y-6">
