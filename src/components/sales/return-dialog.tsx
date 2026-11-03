@@ -4,8 +4,6 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   RotateCcw,
-  CheckCircle2,
-  Printer,
   Minus,
   Plus,
   AlertCircle,
@@ -62,6 +60,16 @@ const RETURN_REASONS = [
   "Other",
 ];
 
+const REFUND_METHODS = [
+  { value: PaymentMethod.Cash.toString(), label: "Cash", icon: Banknote, color: "text-emerald-600" },
+  { value: PaymentMethod.Card.toString(), label: "Card", icon: CreditCard, color: "text-blue-600" },
+  { value: PaymentMethod.StoreCredit.toString(), label: "Store Credit", icon: PackageCheck, color: "text-amber-600" },
+  { value: PaymentMethod.BankTransfer.toString(), label: "Bank Transfer", icon: Building2, color: "text-purple-600" },
+  { value: PaymentMethod.Other.toString(), label: "Other", icon: HelpCircle, color: "text-muted-foreground" },
+];
+
+const REASON_OPTIONS = RETURN_REASONS.map((r) => ({ value: r, label: r }));
+
 export function ReturnDialog({
   sale,
   open,
@@ -75,26 +83,26 @@ export function ReturnDialog({
   const [refundMethod, setRefundMethod] = useState<PaymentMethod>(PaymentMethod.Cash);
   const [reasonCategory, setReasonCategory] = useState<string>("Customer Changed Mind");
   const [reasonNotes, setReasonNotes] = useState<string>("");
-  const [completedReturn, setCompletedReturn] = useState<{
-    returnSlipItems: ReturnSlipItem[];
-    totalRefund: number;
-    method: PaymentMethod;
-    reason: string;
-  } | null>(null);
 
   // Initialize return state whenever sale changes or dialog opens
   useMemo(() => {
     if (!sale) return;
     const initial: Record<string, ItemReturnState> = {};
+    const returnableItemsList = sale.items.filter(
+      (i) => (i.quantity - (i.returnedQuantity ?? 0)) > 0
+    );
+    // If only 1 returnable item exists on this sale, pre-select it with its available quantity!
+    const autoSelectSingle = returnableItemsList.length === 1;
+
     for (const item of sale.items) {
       const returnable = Math.max(0, item.quantity - (item.returnedQuantity ?? 0));
+      const isSelected = autoSelectSingle && returnable > 0;
       initial[item.id] = {
-        selected: false,
-        quantity: returnable > 0 ? 1 : 0,
+        selected: isSelected,
+        quantity: returnable > 0 ? (isSelected ? returnable : 1) : 0,
       };
     }
     setItemStates(initial);
-    setCompletedReturn(null);
     setReasonCategory("Customer Changed Mind");
     setReasonNotes("");
     setRefundMethod(PaymentMethod.Cash);
@@ -173,7 +181,9 @@ export function ReturnDialog({
       ...prev,
       [id]: {
         selected: checked,
-        quantity: prev[id]?.quantity > 0 ? prev[id].quantity : Math.min(1, item.availableQty),
+        quantity: checked
+          ? (prev[id]?.quantity > 0 ? prev[id].quantity : item.availableQty)
+          : 0,
       },
     }));
   }
@@ -181,7 +191,16 @@ export function ReturnDialog({
   function setItemQty(id: string, qty: number) {
     const item = returnableItems.find((i) => i.id === id);
     if (!item) return;
-    const clamped = Math.max(1, Math.min(qty, item.availableQty));
+
+    if (qty <= 0) {
+      setItemStates((prev) => ({
+        ...prev,
+        [id]: { selected: false, quantity: 0 },
+      }));
+      return;
+    }
+
+    const clamped = Math.min(qty, item.availableQty);
     setItemStates((prev) => ({
       ...prev,
       [id]: {
@@ -192,9 +211,6 @@ export function ReturnDialog({
   }
 
   function handleClose(nextOpen: boolean) {
-    if (!nextOpen) {
-      setCompletedReturn(null);
-    }
     onOpenChange(nextOpen);
   }
 
@@ -230,14 +246,22 @@ export function ReturnDialog({
       { id: sale!.id, data: requestPayload },
       {
         onSuccess: () => {
-          toast.success("Return processed successfully");
-          setCompletedReturn({
-            returnSlipItems: slipItems,
-            totalRefund: totalRefundAmount,
-            method: refundMethod,
-            reason: fullReason,
-          });
+          const methodLabel =
+            REFUND_METHODS.find((m) => m.value === refundMethod.toString())?.label || "Cash";
+          toast.success(
+            `Return processed. Refund of ${formatCurrency(totalRefundAmount)} issued via ${methodLabel}. Printing return slip...`
+          );
+          // Print return slip directly without showing it on screen
+          printReturnSlip(
+            sale!,
+            slipItems,
+            totalRefundAmount,
+            refundMethod,
+            fullReason,
+            { settings: settingsQuery.data }
+          );
           onSuccess?.();
+          handleClose(false);
         },
         onError: (err) => {
           toast.error(getApiErrorMessage(err));
@@ -248,9 +272,9 @@ export function ReturnDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+      <DialogContent className="sm:max-w-xl md:max-w-2xl max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden">
         <DialogHeader className="shrink-0 space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <div className="flex size-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
               <RotateCcw className="size-5" />
             </div>
@@ -263,78 +287,8 @@ export function ReturnDialog({
           </div>
         </DialogHeader>
 
-        {completedReturn ? (
-          /* SUCCESS STATE WITH DIRECT PRINT OPTION */
-          <div className="py-6 space-y-5 text-center flex flex-col items-center">
-            <div className="flex size-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 dark:bg-emerald-500/25 dark:text-emerald-400">
-              <CheckCircle2 className="size-8" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-lg font-bold text-foreground">Return Successfully Processed</h3>
-              <p className="text-sm text-muted-foreground">
-                Refund amount of{" "}
-                <span className="font-semibold text-foreground">
-                  {formatCurrency(completedReturn.totalRefund)}
-                </span>{" "}
-                was issued via{" "}
-                <span className="font-semibold text-foreground">
-                  {completedReturn.method === PaymentMethod.Cash ? "Cash" : "Selected Method"}
-                </span>
-                .
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Inventory stocks have been replenished and sale status has been updated.
-              </p>
-            </div>
-
-            <div className="rounded-lg border bg-muted/30 p-3 text-left w-full max-w-md text-xs space-y-1.5 font-mono">
-              <div className="flex justify-between font-bold border-b pb-1 text-muted-foreground">
-                <span>Returned Items</span>
-                <span>Refund</span>
-              </div>
-              {completedReturn.returnSlipItems.map((item, idx) => (
-                <div key={idx} className="flex justify-between">
-                  <span className="truncate pr-2">
-                    {item.quantity}x {item.productName}
-                  </span>
-                  <span className="font-semibold shrink-0">
-                    -{formatCurrency(item.refundAmount)}
-                  </span>
-                </div>
-              ))}
-              <div className="flex justify-between font-bold pt-1 border-t text-sm">
-                <span>Total Refunded:</span>
-                <span className="text-emerald-600 dark:text-emerald-400">
-                  {formatCurrency(completedReturn.totalRefund)}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 pt-2">
-              <Button
-                variant="default"
-                className="gap-2"
-                onClick={() => {
-                  printReturnSlip(
-                    sale,
-                    completedReturn.returnSlipItems,
-                    completedReturn.totalRefund,
-                    completedReturn.method,
-                    completedReturn.reason,
-                    { settings: settingsQuery.data }
-                  );
-                }}
-              >
-                <Printer className="size-4" /> Print Return Slip
-              </Button>
-              <Button variant="outline" onClick={() => handleClose(false)}>
-                Done
-              </Button>
-            </div>
-          </div>
-        ) : (
-          /* RETURN SELECTION FORM */
-          <div className="flex-1 overflow-y-auto pr-1 space-y-4">
+        {/* RETURN SELECTION FORM */}
+        <div className="flex-1 overflow-y-auto pr-2 space-y-4">
             {allFullyReturned ? (
               <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center text-sm space-y-2">
                 <AlertCircle className="size-6 text-amber-500 mx-auto" />
@@ -382,7 +336,7 @@ export function ReturnDialog({
                     return (
                       <div
                         key={item.id}
-                        className={`rounded-lg border p-3 transition-colors ${
+                        className={`rounded-lg border p-3.5 transition-colors ${
                           item.isSelected
                             ? "border-primary/50 bg-primary/5 shadow-xs"
                             : isAvailable
@@ -440,17 +394,16 @@ export function ReturnDialog({
                                       variant="ghost"
                                       size="icon"
                                       className="size-7 rounded-none rounded-l-md"
-                                      disabled={!item.isSelected || item.returnQty <= 1}
+                                      disabled={!item.isSelected || item.returnQty <= 0}
                                       onClick={() => setItemQty(item.id, item.returnQty - 1)}
                                     >
                                       <Minus className="size-3.5" />
                                     </Button>
                                     <Input
                                       type="number"
-                                      min={1}
+                                      min={0}
                                       max={item.availableQty}
                                       value={item.isSelected ? item.returnQty : 0}
-                                      disabled={!item.isSelected}
                                       onChange={(e) => {
                                         const val = parseInt(e.target.value, 10);
                                         if (!isNaN(val)) setItemQty(item.id, val);
@@ -462,10 +415,10 @@ export function ReturnDialog({
                                       variant="ghost"
                                       size="icon"
                                       className="size-7 rounded-none rounded-r-md"
-                                      disabled={
-                                        !item.isSelected || item.returnQty >= item.availableQty
+                                      disabled={item.returnQty >= item.availableQty}
+                                      onClick={() =>
+                                        setItemQty(item.id, (item.isSelected ? item.returnQty : 0) + 1)
                                       }
-                                      onClick={() => setItemQty(item.id, item.returnQty + 1)}
                                     >
                                       <Plus className="size-3.5" />
                                     </Button>
@@ -477,7 +430,7 @@ export function ReturnDialog({
                                       variant="outline"
                                       size="sm"
                                       className="text-[11px] h-7 px-2"
-                                      disabled={!item.isSelected || item.returnQty === item.availableQty}
+                                      disabled={item.isSelected && item.returnQty === item.availableQty}
                                       onClick={() => setItemQty(item.id, item.availableQty)}
                                     >
                                       Max ({item.availableQty})
@@ -507,52 +460,46 @@ export function ReturnDialog({
                 </div>
 
                 {/* RETURN OPTIONS: REFUND METHOD & REASON */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                       <Banknote className="size-3.5 text-primary" />
                       Refund Method
                     </label>
                     <Select
+                      items={REFUND_METHODS}
                       value={refundMethod.toString()}
                       onValueChange={(val) => {
                         if (val) setRefundMethod(parseInt(val, 10) as PaymentMethod);
                       }}
                     >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select refund method" />
+                      <SelectTrigger className="w-full h-9">
+                        <SelectValue placeholder="Select refund method">
+                          {(val: string | null) => {
+                            const match = REFUND_METHODS.find((m) => m.value === val);
+                            if (!match) return "Cash";
+                            const Icon = match.icon;
+                            return (
+                              <span className="flex items-center gap-2 truncate">
+                                <Icon className={`size-4 ${match.color} shrink-0`} />
+                                <span className="truncate">{match.label}</span>
+                              </span>
+                            );
+                          }}
+                        </SelectValue>
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={PaymentMethod.Cash.toString()}>
-                          <div className="flex items-center gap-2">
-                            <Banknote className="size-4 text-emerald-600" />
-                            <span>Cash</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value={PaymentMethod.Card.toString()}>
-                          <div className="flex items-center gap-2">
-                            <CreditCard className="size-4 text-blue-600" />
-                            <span>Card</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value={PaymentMethod.StoreCredit.toString()}>
-                          <div className="flex items-center gap-2">
-                            <PackageCheck className="size-4 text-amber-600" />
-                            <span>Store Credit</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value={PaymentMethod.BankTransfer.toString()}>
-                          <div className="flex items-center gap-2">
-                            <Building2 className="size-4 text-purple-600" />
-                            <span>Bank Transfer</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value={PaymentMethod.Other.toString()}>
-                          <div className="flex items-center gap-2">
-                            <HelpCircle className="size-4 text-muted-foreground" />
-                            <span>Other</span>
-                          </div>
-                        </SelectItem>
+                      <SelectContent className="min-w-44" align="start">
+                        {REFUND_METHODS.map((m) => {
+                          const Icon = m.icon;
+                          return (
+                            <SelectItem key={m.value} value={m.value}>
+                              <div className="flex items-center gap-2">
+                                <Icon className={`size-4 ${m.color} shrink-0`} />
+                                <span>{m.label}</span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -563,18 +510,23 @@ export function ReturnDialog({
                       Return Reason
                     </label>
                     <Select
+                      items={REASON_OPTIONS}
                       value={reasonCategory}
                       onValueChange={(val) => {
                         if (val) setReasonCategory(val);
                       }}
                     >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select reason" />
+                      <SelectTrigger className="w-full h-9">
+                        <SelectValue placeholder="Select reason">
+                          {(val: string | null) => (
+                            <span className="truncate">{val || "Customer Changed Mind"}</span>
+                          )}
+                        </SelectValue>
                       </SelectTrigger>
-                      <SelectContent>
-                        {RETURN_REASONS.map((r) => (
-                          <SelectItem key={r} value={r}>
-                            {r}
+                      <SelectContent className="min-w-64 max-w-sm" align="start">
+                        {REASON_OPTIONS.map((r) => (
+                          <SelectItem key={r.value} value={r.value} className="whitespace-normal py-1.5">
+                            {r.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -610,28 +562,26 @@ export function ReturnDialog({
                 </div>
               </>
             )}
-          </div>
-        )}
+        </div>
 
-        {!completedReturn && (
-          <DialogFooter className="shrink-0 pt-3 border-t flex-row items-center justify-between sm:justify-between gap-2">
-            <Button variant="outline" onClick={() => handleClose(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="default"
-              className="gap-2 font-semibold"
-              disabled={selectedCount === 0 || totalRefundAmount <= 0 || processReturn.isPending}
-              onClick={submitReturn}
-            >
-              <RotateCcw className="size-4" />
-              {processReturn.isPending
-                ? "Processing..."
-                : `Process Return (${formatCurrency(totalRefundAmount)})`}
-            </Button>
-          </DialogFooter>
-        )}
+        <DialogFooter className="shrink-0 pt-3 border-t flex-row items-center justify-between sm:justify-between gap-2">
+          <Button variant="outline" onClick={() => handleClose(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="default"
+            className="gap-2 font-semibold"
+            disabled={selectedCount === 0 || totalRefundAmount <= 0 || processReturn.isPending}
+            onClick={submitReturn}
+          >
+            <RotateCcw className="size-4" />
+            {processReturn.isPending
+              ? "Processing..."
+              : `Process Return (${formatCurrency(totalRefundAmount)})`}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+

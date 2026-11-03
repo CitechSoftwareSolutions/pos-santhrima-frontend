@@ -442,7 +442,12 @@ export function printReturnSlip(
           <div class="title">${escapeHtml(storeName)}</div>
           ${storeAddress ? `<div class="subtitle">${escapeHtml(storeAddress)}</div>` : ""}
           ${storePhone ? `<div class="subtitle">Tel: ${escapeHtml(storePhone)}</div>` : ""}
-          <div class="badge">RETURN / CREDIT NOTE</div>
+          <div style="margin: 6px auto 3px auto; border: 2px solid #000; padding: 4px 6px; font-weight: 800; font-size: ${is58mm ? "12px" : "13px"}; letter-spacing: 0.5px; text-transform: uppercase; width: 95%;">
+            *** OFFICIAL RETURN SLIP ***
+          </div>
+          <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">
+            CUSTOMER REFUND & CREDIT VOUCHER
+          </div>
         </div>
 
         <div class="divider"></div>
@@ -500,8 +505,11 @@ export function printReturnSlip(
           <div style="height: 18px;"></div>
         </div>
 
-        <div class="text-center" style="margin-top: 10px; font-size: 10px; opacity: 0.8;">
-          Returned items have been restored to inventory.
+        <div class="text-center" style="margin-top: 10px; font-size: 10px; font-weight: 700; text-transform: uppercase;">
+          *** THIS IS A RETURN SLIP - NOT A SALE RECEIPT ***
+        </div>
+        <div class="text-center" style="margin-top: 2px; font-size: 9px; opacity: 0.8;">
+          Returned items have been restored to store inventory.
         </div>
 
         <div style="height: 18mm; width: 100%;" aria-hidden="true"></div>
