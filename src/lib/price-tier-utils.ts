@@ -1,8 +1,9 @@
 import type { PriceTierDto, ProductDto } from "@/lib/types";
 
-export type PriceKind = "retail" | "wholesale" | "special";
+export type PriceKind = "mrp" | "retail" | "wholesale" | "special";
 
 export const PRICE_KIND_LABELS: Record<PriceKind, string> = {
+  mrp: "MRP",
   retail: "Retail",
   wholesale: "Wholesale",
   special: "Special",
@@ -11,26 +12,33 @@ export const PRICE_KIND_LABELS: Record<PriceKind, string> = {
 const QUANTITY_EPSILON = 1e-9;
 
 /**
- * The product's base price for a given kind, used when no exact-quantity tier
- * matches. Wholesale/Special fall back to Retail when the product doesn't set
- * one.
+ * Returns the effective selling price (MRP) for a product.
  */
-export function productBasePrice(product: ProductDto, kind: PriceKind): number {
+export function getProductSellingPrice(product: ProductDto): number {
+  return product.mrp ?? product.retailPrice;
+}
+
+/**
+ * The product's base price for a given kind, used when no exact-quantity tier
+ * matches. MRP is the default selling price.
+ */
+export function productBasePrice(product: ProductDto, kind: PriceKind = "mrp"): number {
+  if (kind === "mrp") return product.mrp ?? product.retailPrice;
+  if (kind === "retail") return product.retailPrice;
   if (kind === "wholesale") return product.wholesalePrice ?? product.retailPrice;
   if (kind === "special") return product.specialPrice ?? product.retailPrice;
-  return product.retailPrice;
+  return product.mrp ?? product.retailPrice;
 }
 
 /**
  * Mirrors the backend's PriceTierResolver: a tier only applies when the
  * quantity exactly equals its Quantity (not a threshold); otherwise the
- * product's base price for the given kind applies. Wholesale/Special fall
- * back to the tier's (or product's) Retail price when not set.
+ * product's base price for the given kind applies.
  */
 export function resolveTieredPrice(
   product: ProductDto,
   quantity: number,
-  kind: PriceKind = "retail",
+  kind: PriceKind = "mrp",
 ): number {
   return resolveTieredPriceFromTiers(productBasePrice(product, kind), product.priceTiers, quantity, kind);
 }
@@ -39,7 +47,7 @@ export function resolveTieredPriceFromTiers(
   basePrice: number,
   tiers: PriceTierDto[],
   quantity: number,
-  kind: PriceKind = "retail",
+  kind: PriceKind = "mrp",
 ): number {
   const tier = exactTierForQuantity(tiers, quantity);
   if (!tier) return basePrice;

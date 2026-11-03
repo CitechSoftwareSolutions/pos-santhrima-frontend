@@ -555,11 +555,19 @@ export function ProductGrid({
                         </Badge>
                       </div>
 
-                      {/* Unit Price */}
+                      {/* Unit Price / MRP */}
                       <div className="w-28 shrink-0 text-right">
-                        <span className="text-xs sm:text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
-                          {formatCurrency(product.retailPrice)}
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">
+                          MRP
                         </span>
+                        <span className="text-xs sm:text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
+                          {formatCurrency(product.mrp ?? product.retailPrice)}
+                        </span>
+                        {product.retailPrice && product.mrp && product.retailPrice !== product.mrp ? (
+                          <span className="text-[10px] text-muted-foreground block truncate">
+                            Retail: {formatCurrency(product.retailPrice)}
+                          </span>
+                        ) : null}
                       </div>
 
                       {/* Action Button */}
@@ -623,9 +631,14 @@ export function ProductGrid({
                       </div>
 
                       <div className="mt-auto pt-1.5 flex w-full items-center justify-between gap-1">
-                        <span className="text-xs sm:text-sm font-semibold tabular-nums text-foreground whitespace-nowrap">
-                          {formatCurrency(product.retailPrice)}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider leading-none">
+                            MRP
+                          </span>
+                          <span className="text-xs sm:text-sm font-semibold tabular-nums text-foreground whitespace-nowrap mt-0.5">
+                            {formatCurrency(product.mrp ?? product.retailPrice)}
+                          </span>
+                        </div>
                         <Badge
                           variant={product.stockQuantity <= product.reorderLevel ? "destructive" : "secondary"}
                           className="text-[9px] px-1 py-0 shrink-0 font-normal"

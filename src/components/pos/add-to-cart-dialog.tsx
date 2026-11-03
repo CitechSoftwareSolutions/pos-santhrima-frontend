@@ -29,13 +29,7 @@ import type { ProductDto } from "@/lib/types";
 import { useHotkeysStore } from "@/store/hotkeys-store";
 import { keyCodeToDisplay } from "@/lib/hotkeys/config";
 
-const PRICE_KINDS: PriceKind[] = ["retail", "wholesale", "special"];
-
-const KIND_SHORTCUTS: Record<PriceKind, { code: string; display: string }> = {
-  retail: { code: "KeyR", display: "R" },
-  wholesale: { code: "KeyW", display: "W" },
-  special: { code: "KeyS", display: "S" },
-};
+const PRICE_KINDS: PriceKind[] = ["mrp", "retail", "wholesale", "special"];
 
 function AddToCartForm({
   product,
@@ -47,10 +41,10 @@ function AddToCartForm({
   onConfirm: (quantity: number, unitPrice: number) => void;
 }) {
   const [quantity, setQuantity] = useState("1");
-  const [priceKind, setPriceKind] = useState<PriceKind>("retail");
+  const [priceKind, setPriceKind] = useState<PriceKind>("mrp");
   const [priceTouched, setPriceTouched] = useState(false);
   const [unitPrice, setUnitPrice] = useState(() =>
-    String(resolveTieredPrice(product, 1, "retail")),
+    String(resolveTieredPrice(product, 1, "mrp")),
   );
 
   const quantityInputRef = useRef<HTMLInputElement>(null);
@@ -65,6 +59,7 @@ function AddToCartForm({
   const specialCode = priceTierKeys["special"] || "KeyS";
 
   const dynamicShortcuts: Record<PriceKind, { code: string; display: string }> = {
+    mrp: { code: "KeyM", display: "M" },
     retail: { code: retailCode, display: keyCodeToDisplay(retailCode) },
     wholesale: { code: wholesaleCode, display: keyCodeToDisplay(wholesaleCode) },
     special: { code: specialCode, display: keyCodeToDisplay(specialCode) },
@@ -108,7 +103,10 @@ function AddToCartForm({
   const tiers = [...product.priceTiers].sort((a, b) => a.quantity - b.quantity);
   const activeTier = exactTierForQuantity(product.priceTiers, qty);
   const hasTiers = tiers.length > 0;
-  const hasAltBasePrices = product.wholesalePrice !== null || product.specialPrice !== null;
+  const hasAltBasePrices =
+    product.wholesalePrice !== null ||
+    product.specialPrice !== null ||
+    (product.mrp !== null && product.mrp !== undefined && product.mrp !== product.retailPrice);
   const showPriceKindPicker = hasTiers || hasAltBasePrices;
 
   const tiersForKind = tiers.filter((t) => {
@@ -177,8 +175,22 @@ function AddToCartForm({
     <div onKeyDown={handleKeyDown} className="space-y-4 outline-none">
       <DialogHeader>
         <DialogTitle>{product.name}</DialogTitle>
-        <DialogDescription>
-          {product.sku} · {product.stockQuantity} {product.unit} in stock
+        <DialogDescription className="flex items-center gap-1.5 flex-wrap">
+          <span>{product.sku}</span>
+          <span>·</span>
+          <span>{product.stockQuantity} {product.unit} in stock</span>
+          <span>·</span>
+          <span className="font-semibold text-foreground">
+            MRP: {formatCurrency(product.mrp ?? product.retailPrice)}
+          </span>
+          {product.retailPrice && product.mrp && product.retailPrice !== product.mrp ? (
+            <>
+              <span>·</span>
+              <span className="text-muted-foreground">
+                Retail: {formatCurrency(product.retailPrice)}
+              </span>
+            </>
+          ) : null}
         </DialogDescription>
       </DialogHeader>
 
@@ -227,9 +239,9 @@ function AddToCartForm({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label>Price Type</Label>
-            <span className="text-[10px] text-muted-foreground">Alt+R / Alt+W / Alt+S</span>
+            <span className="text-[10px] text-muted-foreground">Alt+M / Alt+R / Alt+W / Alt+S</span>
           </div>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             {PRICE_KINDS.map((kind) => {
               const sc = dynamicShortcuts[kind];
               return (
@@ -239,13 +251,13 @@ function AddToCartForm({
                   onClick={() => handlePriceKindChange(kind)}
                   aria-keyshortcuts={`${sc.display.toLowerCase()} Alt+${sc.display.toLowerCase()}`}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors",
+                    "flex items-center justify-center gap-1 rounded-lg border px-1.5 py-1.5 text-xs font-medium transition-colors",
                     priceKind === kind
                       ? "border-primary bg-accent text-foreground ring-1 ring-primary/40 font-semibold"
                       : "text-muted-foreground hover:bg-accent/50",
                   )}
                 >
-                  <span>{PRICE_KIND_LABELS[kind]}</span>
+                  <span className="truncate">{PRICE_KIND_LABELS[kind]}</span>
                   <ShortcutHint keyName={sc.display} altKeyName={`Alt+${sc.display}`} />
                 </button>
               );
@@ -266,7 +278,12 @@ function AddToCartForm({
 
       {/* Unit Price Input */}
       <div className="space-y-2">
-        <Label htmlFor="unit-price-input">Unit Price</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="unit-price-input">Unit Selling Price</Label>
+          <span className="text-xs font-medium text-muted-foreground">
+            MRP: <span className="text-foreground">{formatCurrency(product.mrp ?? product.retailPrice)}</span>
+          </span>
+        </div>
         <Input
           id="unit-price-input"
           type="number"

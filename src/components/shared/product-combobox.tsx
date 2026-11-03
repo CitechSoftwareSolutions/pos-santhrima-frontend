@@ -14,6 +14,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useProducts } from "@/lib/hooks/use-products";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
+import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ProductDto } from "@/lib/types";
 
@@ -64,7 +65,9 @@ export function ProductCombobox({
                   <Check className={cn("size-4", value?.id === product.id ? "opacity-100" : "opacity-0")} />
                   <div className="flex flex-col">
                     <span>{product.name}</span>
-                    <span className="text-xs text-muted-foreground">{product.sku}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {product.sku} · MRP: {formatCurrency(product.mrp ?? product.retailPrice)}
+                    </span>
                   </div>
                 </CommandItem>
               ))}

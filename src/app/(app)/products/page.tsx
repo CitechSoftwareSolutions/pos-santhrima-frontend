@@ -55,6 +55,7 @@ interface ProductFormState {
   categoryId: string;
   costPrice: string;
   retailPrice: string;
+  mrp: string;
   wholesalePrice: string;
   specialPrice: string;
   priceTiers: PriceTierRow[];
@@ -100,6 +101,7 @@ const emptyForm: ProductFormState = {
   categoryId: "",
   costPrice: "",
   retailPrice: "",
+  mrp: "",
   wholesalePrice: "",
   specialPrice: "",
   priceTiers: [],
@@ -177,6 +179,7 @@ function ProductsPageContent() {
       categoryId: product.categoryId,
       costPrice: String(product.costPrice),
       retailPrice: String(product.retailPrice),
+      mrp: product.mrp !== null && product.mrp !== undefined ? String(product.mrp) : String(product.retailPrice),
       wholesalePrice: product.wholesalePrice === null ? "" : String(product.wholesalePrice),
       specialPrice: product.specialPrice === null ? "" : String(product.specialPrice),
       priceTiers:
@@ -307,6 +310,7 @@ function ProductsPageContent() {
       categoryId: form.categoryId,
       costPrice: parseFloat(form.costPrice) || 0,
       retailPrice: baseRetail,
+      mrp: parseFloat(form.mrp) || baseRetail,
       wholesalePrice: baseWholesale,
       specialPrice: baseSpecial,
       taxRate: parseFloat(form.taxRate) || 0,
@@ -483,7 +487,9 @@ function ProductsPageContent() {
                 <TableRow>
                   <TableHead>Product</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Price</TableHead>
+                  <TableHead>Cost Price</TableHead>
+                  <TableHead>Retail Price</TableHead>
+                  <TableHead>MRP (Selling)</TableHead>
                   <TableHead>Stock</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -497,7 +503,15 @@ function ProductsPageContent() {
                       <div className="text-xs text-muted-foreground">{product.sku}</div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{product.categoryName}</TableCell>
-                    <TableCell>{formatCurrency(product.retailPrice)}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {formatCurrency(product.costPrice)}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {formatCurrency(product.retailPrice)}
+                    </TableCell>
+                    <TableCell className="font-semibold font-mono text-xs text-foreground">
+                      {formatCurrency(product.mrp ?? product.retailPrice)}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={product.isLowStock ? "destructive" : "secondary"}>
                         {product.stockQuantity} {product.unit}
@@ -662,8 +676,18 @@ function ProductsPageContent() {
             </div>
 
             <div className="space-y-3 rounded-lg border p-3">
-              <Label>Selling Prices</Label>
-              <div className="grid grid-cols-3 gap-3">
+              <Label>Selling & Tier Base Prices</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-primary">MRP (Selling Price)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={form.mrp}
+                    onChange={(e) => setForm({ ...form, mrp: e.target.value })}
+                  />
+                </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">Retail Price</Label>
                   <Input
@@ -698,9 +722,7 @@ function ProductsPageContent() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Retail is required. Wholesale and Special are optional - they apply when no exact-quantity
-                tier matches and a cashier picks that price type at checkout (falling back to Retail if not
-                set).
+                MRP is the primary selling price used at checkout. Retail, Wholesale, and Special are tier base prices.
               </p>
             </div>
 
@@ -728,7 +750,7 @@ function ProductsPageContent() {
                     <TableHeader>
                       <TableRow className="bg-muted/40">
                         <TableHead className="w-28 text-xs font-semibold">Quantity</TableHead>
-                        <TableHead className="min-w-36 text-xs font-semibold">Retail Discount</TableHead>
+                        <TableHead className="min-w-36 text-xs font-semibold">MRP / Retail Discount</TableHead>
                         <TableHead className="min-w-36 text-xs font-semibold">Wholesale Discount</TableHead>
                         <TableHead className="min-w-36 text-xs font-semibold">Special Discount</TableHead>
                         <TableHead className="w-10 p-0 text-center"></TableHead>
