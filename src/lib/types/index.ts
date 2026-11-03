@@ -43,6 +43,12 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface UpdateCredentialsRequest {
+  currentPassword: string;
+  newUsername?: string;
+  newPassword?: string;
+}
+
 export interface RegisterRequest {
   fullName: string;
   email: string;

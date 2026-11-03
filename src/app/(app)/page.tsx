@@ -31,7 +31,8 @@ function todayRange() {
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
-  const canViewReports = !!user && (user.roles.includes(ROLES.Admin) || user.roles.includes(ROLES.Manager));
+  const isSuperSuperAdmin = !!user && user.roles.includes(ROLES.SuperSuperAdmin);
+  const canViewReports = !!user && (user.roles.includes(ROLES.Admin) || user.roles.includes(ROLES.Manager) || isSuperSuperAdmin);
   const range = todayRange();
 
   const [salesViewMode, setSalesViewMode] = useState<"cashier" | "counter">("cashier");
@@ -52,10 +53,12 @@ export default function DashboardPage() {
         title={`Welcome back, ${user?.fullName?.split(" ")[0] ?? ""}`}
         description="Here's what's happening in your store today."
         actions={
-          <Button render={<Link href="/pos" />} nativeButton={false}>
-            <ShoppingCart className="size-4" />
-            New Sale
-          </Button>
+          !isSuperSuperAdmin ? (
+            <Button render={<Link href="/pos" />} nativeButton={false}>
+              <ShoppingCart className="size-4" />
+              New Sale
+            </Button>
+          ) : undefined
         }
       />
 

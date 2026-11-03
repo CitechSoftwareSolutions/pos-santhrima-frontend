@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { AuthResponse, LoginRequest, RegisterRequest, UpdateUserRequest, UserDto } from "@/lib/types";
+import type { AuthResponse, LoginRequest, RegisterRequest, UpdateCredentialsRequest, UpdateUserRequest, UserDto } from "@/lib/types";
 
 export const authApi = {
   login: (data: LoginRequest) =>
@@ -23,4 +23,7 @@ export const authApi = {
     apiClient
       .post("/auth/change-password", { currentPassword, newPassword })
       .then((r) => r.data),
+
+  updateSuperAdminCredentials: (data: UpdateCredentialsRequest) =>
+    apiClient.post("/auth/super-admin/credentials", data).then((r) => r.data),
 };

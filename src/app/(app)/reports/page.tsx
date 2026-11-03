@@ -32,7 +32,7 @@ function defaultRange() {
 
 export default function ReportsPage() {
   return (
-    <RequireRole roles={[ROLES.Admin, ROLES.Manager]}>
+    <RequireRole roles={[ROLES.Admin, ROLES.Manager, ROLES.SuperSuperAdmin]}>
       <ReportsPageContent />
     </RequireRole>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (hydrated && useAuthStore.getState().isAuthenticated) {
@@ -31,8 +32,14 @@ export default function LoginPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!email.trim() || !password) {
+      if (!password) {
+        passwordInputRef.current?.focus();
+      }
+      return;
+    }
     login.mutate(
-      { email, password },
+      { email: email.trim(), password },
       {
         onError: (err) => toast.error(getApiErrorMessage(err)),
       },
@@ -61,11 +68,18 @@ export default function LoginPage() {
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
-                  type="email"
-                  autoComplete="email"
+                  type="text"
+                  autoComplete="username"
+                  autoFocus
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !password) {
+                      e.preventDefault();
+                      passwordInputRef.current?.focus();
+                    }
+                  }}
                   placeholder="admin@possystem.local"
                 />
               </div>
@@ -73,6 +87,7 @@ export default function LoginPage() {
                 <Label htmlFor="password">Password</Label>
                 <PasswordInput
                   id="password"
+                  ref={passwordInputRef}
                   autoComplete="current-password"
                   required
                   value={password}

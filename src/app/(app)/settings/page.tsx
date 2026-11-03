@@ -85,14 +85,242 @@ import { formatCurrency } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { playScannerBeep, triggerTestPrint } from "@/lib/hardware-utils";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth-store";
+import { useUpdateSuperAdminCredentials } from "@/lib/hooks/use-auth";
+import { PasswordInput } from "@/components/ui/password-input";
+import { PageHeader } from "@/components/shared/page-header";
 
 export default function SettingsPage() {
+  const user = useAuthStore((s) => s.user);
+  const isSuperSuperAdmin = !!user && user.roles.includes(ROLES.SuperSuperAdmin);
+
   return (
-    <RequireRole roles={[ROLES.Admin]}>
-      <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading settings...</div>}>
-        <SettingsContent />
-      </Suspense>
+    <RequireRole roles={[ROLES.Admin, ROLES.SuperSuperAdmin]}>
+      {isSuperSuperAdmin ? (
+        <SuperAdminSettingsContent />
+      ) : (
+        <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading settings...</div>}>
+          <SettingsContent />
+        </Suspense>
+      )}
     </RequireRole>
+  );
+}
+
+function SuperAdminSettingsContent() {
+  const updateCreds = useUpdateSuperAdminCredentials();
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const newUsernameRef = useRef<HTMLInputElement>(null);
+  const newPasswordRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordRef = useRef<HTMLInputElement>(null);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!currentPassword) {
+      toast.error("Please enter your current barcode/password.");
+      return;
+    }
+
+    if (!newUsername.trim() && !newPassword) {
+      toast.error("Please provide a new username or new password to update.");
+      return;
+    }
+
+    if (newPassword && newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters/digits.");
+      return;
+    }
+
+    if (newPassword && newPassword !== confirmPassword) {
+      toast.error("New password and confirm password do not match.");
+      return;
+    }
+
+    updateCreds.mutate(
+      {
+        currentPassword,
+        newUsername: newUsername.trim() || undefined,
+        newPassword: newPassword || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Security credentials updated successfully in both databases.");
+          setCurrentPassword("");
+          setNewUsername("");
+          setNewPassword("");
+          setConfirmPassword("");
+        },
+        onError: (err) => {
+          toast.error(getApiErrorMessage(err));
+        },
+      }
+    );
+  }
+
+  return (
+    <div className="space-y-6 max-w-4xl">
+      <PageHeader
+        title="Settings"
+        description="Manage master barcode credentials and security for the Admin Database."
+      />
+
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <KeyRound className="size-5 text-primary" />
+              <CardTitle className="text-lg">Change Master Credentials</CardTitle>
+            </div>
+            <CardDescription>
+              Update your authentication credentials. You can type or scan standard product barcodes directly into any field.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="current-barcode-pass">Current Password / Barcode</Label>
+                <PasswordInput
+                  id="current-barcode-pass"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Scan or enter current barcode"
+                  required
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      newUsernameRef.current?.focus();
+                    }
+                  }}
+                />
+              </div>
+
+              <Separator className="my-2" />
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="new-barcode-user">New Username / Barcode</Label>
+                  <span className="text-xs text-muted-foreground">Leave blank if keeping current</span>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="new-barcode-user"
+                    ref={newUsernameRef}
+                    type="text"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    placeholder="Scan or enter new product barcode"
+                    className="pr-10"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        newPasswordRef.current?.focus();
+                      }
+                    }}
+                  />
+                  <ScanBarcode className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground opacity-60" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="new-barcode-pass">New Password / Barcode</Label>
+                  <span className="text-xs text-muted-foreground">Min 8 characters/digits</span>
+                </div>
+                <PasswordInput
+                  id="new-barcode-pass"
+                  ref={newPasswordRef}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Scan or enter new password barcode"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      confirmPasswordRef.current?.focus();
+                    }
+                  }}
+                />
+              </div>
+
+              {newPassword && (
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-barcode-pass">Confirm New Password / Barcode</Label>
+                  <PasswordInput
+                    id="confirm-barcode-pass"
+                    ref={confirmPasswordRef}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter or scan confirmation"
+                    required={!!newPassword}
+                  />
+                </div>
+              )}
+
+              <div className="pt-2">
+                <Button type="submit" disabled={updateCreds.isPending} className="w-full sm:w-auto">
+                  <Save className="size-4 mr-2" />
+                  {updateCreds.isPending ? "Updating Credentials..." : "Save Credentials"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+          <Card className="border-amber-500/20 bg-amber-500/5">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Database className="size-4 text-amber-500" />
+                <CardTitle className="text-base text-amber-600 dark:text-amber-400">Admin Database Connected</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2.5 text-xs text-muted-foreground">
+              <p>
+                As Super Super Admin, all your queries directly interact with the isolated <strong className="text-foreground">Admin Database</strong>.
+              </p>
+              <div className="rounded-lg bg-background/80 p-2.5 border space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">Target DB:</span>
+                  <Badge variant="outline" className="text-[11px] font-mono border-amber-500/30 text-amber-600 dark:text-amber-400">
+                    pos_system_admin
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">Live & Shifted Sales:</span>
+                  <span className="text-emerald-500 font-medium">Consolidated</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <ScanBarcode className="size-4 text-primary" />
+                <CardTitle className="text-sm">Barcode Scanner Instructions</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="text-xs text-muted-foreground space-y-2">
+              <p>
+                1. Click into any credential field.
+              </p>
+              <p>
+                2. Aim your optical or laser scanner at any physical product barcode.
+              </p>
+              <p>
+                3. The scanner will instantly populate the field and automatically advance to the next step.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
   );
 }
 

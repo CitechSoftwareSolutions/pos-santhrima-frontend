@@ -69,3 +69,10 @@ export function useSetUserStatus() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
   });
 }
+
+export function useUpdateSuperAdminCredentials() {
+  return useMutation({
+    mutationFn: (data: import("@/lib/types").UpdateCredentialsRequest) =>
+      authApi.updateSuperAdminCredentials(data),
+  });
+}
