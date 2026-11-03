@@ -75,6 +75,11 @@ export function ReceiptView({
               <p className="text-[11px] opacity-75 mt-0.5">
                 {item.quantity} x {formatCurrency(item.unitPrice)}
                 {item.discountAmount > 0 && ` (-${formatCurrency(item.discountAmount)})`}
+                {Boolean(item.returnedQuantity && item.returnedQuantity > 0) && (
+                  <span className="font-semibold text-amber-600 dark:text-amber-400 ml-1.5">
+                    ({item.returnedQuantity} returned)
+                  </span>
+                )}
               </p>
             </div>
             <span className="shrink-0 font-semibold text-right">{formatCurrency(item.lineTotal)}</span>

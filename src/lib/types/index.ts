@@ -282,6 +282,19 @@ export interface SaleItemDto {
   promotionId: string | null;
   promotionName: string | null;
   promotionDiscountAmount: number;
+  returnedQuantity?: number;
+}
+
+export interface ReturnSaleItemRequest {
+  saleItemId: string;
+  quantity: number;
+  reason?: string;
+}
+
+export interface ReturnSaleRequest {
+  items: ReturnSaleItemRequest[];
+  refundPaymentMethod: PaymentMethod;
+  reason?: string;
 }
 
 export interface SalePaymentDto {

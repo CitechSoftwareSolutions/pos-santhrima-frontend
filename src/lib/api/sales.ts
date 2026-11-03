@@ -25,4 +25,9 @@ export const salesApi = {
     apiClient
       .post<SaleDto>(`/sales/${id}/refund`, { saleItemIds, reason })
       .then((r) => r.data),
+
+  processReturn: (id: string, data: import("@/lib/types").ReturnSaleRequest) =>
+    apiClient.post<SaleDto>(`/sales/${id}/returns`, data).then((r) => r.data),
+
+  delete: (id: string) => apiClient.delete(`/sales/${id}`).then((r) => r.data),
 };

@@ -1,7 +1,19 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { Calendar, Receipt, Search, X, Users, Monitor, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Calendar,
+  Receipt,
+  Search,
+  X,
+  Users,
+  Monitor,
+  RotateCcw,
+  Trash2,
+  Eye,
+  AlertTriangle,
+} from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationBar } from "@/components/shared/pagination-bar";
@@ -11,18 +23,27 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useSales } from "@/lib/hooks/use-sales";
+import { useSales, useSale, useDeleteSale } from "@/lib/hooks/use-sales";
 import { useUsers } from "@/lib/hooks/use-auth";
 import { useActiveTerminal } from "@/lib/hooks/use-active-terminal";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { useAuthStore } from "@/store/auth-store";
 import { SaleDetailDialog } from "@/components/sales/sale-detail-dialog";
+import { ReturnDialog } from "@/components/sales/return-dialog";
 import {
   formatCurrency,
   formatDate,
@@ -31,9 +52,12 @@ import {
   getDateFilterRange,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ROLES, SaleStatus, type SaleListItemDto } from "@/lib/types";
 
 export default function SalesPage() {
   const currentUser = useAuthStore((s) => s.user);
+  const canManage = useAuthStore((s) => s.hasRole(ROLES.Admin, ROLES.Manager));
+  const canReturn = useAuthStore((s) => s.hasRole(ROLES.Admin, ROLES.Manager, ROLES.Cashier));
   const { activeTerminal, terminals, assignedId } = useActiveTerminal();
 
   const [page, setPage] = useState(1);
@@ -60,6 +84,12 @@ export default function SalesPage() {
   });
 
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [saleIdToReturn, setSaleIdToReturn] = useState<string | null>(null);
+  const [saleToDelete, setSaleToDelete] = useState<SaleListItemDto | null>(null);
+
+  const saleToReturnQuery = useSale(saleIdToReturn ?? undefined);
+  const deleteSaleMutation = useDeleteSale();
+
   const debouncedSearch = useDebouncedValue(search, 300);
 
   // If currentUser was not available initially (e.g. hydration delay), initialize once
@@ -370,6 +400,7 @@ export default function SalesPage() {
                   <TableHead>Total</TableHead>
                   <TableHead>Payment</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -395,6 +426,43 @@ export default function SalesPage() {
                     </TableCell>
                     <TableCell>
                       <SaleStatusBadge status={sale.status} />
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground hover:text-foreground"
+                          onClick={() => setSelectedSaleId(sale.id)}
+                          title="View Details / Receipt"
+                        >
+                          <Eye className="size-3.5" />
+                        </Button>
+
+                        {canReturn && ![SaleStatus.Cancelled, SaleStatus.Refunded].includes(sale.status) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+                            onClick={() => setSaleIdToReturn(sale.id)}
+                            title="Process Return / Refund"
+                          >
+                            <RotateCcw className="size-3.5" />
+                          </Button>
+                        )}
+
+                        {canManage && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-destructive hover:bg-destructive/10"
+                            onClick={() => setSaleToDelete(sale)}
+                            title="Delete sales record"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -428,6 +496,71 @@ export default function SalesPage() {
       </div>
 
       <SaleDetailDialog saleId={selectedSaleId} onOpenChange={(o) => !o && setSelectedSaleId(null)} />
+
+      {/* DIRECT RETURN / REFUND DIALOG FROM TABLE ROW */}
+      {saleToReturnQuery.data && (
+        <ReturnDialog
+          sale={saleToReturnQuery.data}
+          open={Boolean(saleIdToReturn)}
+          onOpenChange={(open) => !open && setSaleIdToReturn(null)}
+          onSuccess={() => {
+            sales.refetch();
+          }}
+        />
+      )}
+
+      {/* DELETE CONFIRMATION DIALOG */}
+      <Dialog open={Boolean(saleToDelete)} onOpenChange={(open) => !open && setSaleToDelete(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader className="space-y-1">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="size-5" />
+              <DialogTitle>Delete Sales Record</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs">
+              Are you sure you want to delete receipt{" "}
+              <span className="font-bold text-foreground">{saleToDelete?.saleNumber}</span>?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive space-y-1">
+            <p className="font-semibold">Important:</p>
+            <p>• Unreturned product stocks will be restored to inventory.</p>
+            <p>• Associated customer purchases and loyalty points will be reversed.</p>
+            <p>• This sale record will be removed from Sales History.</p>
+          </div>
+
+          <DialogFooter className="flex-row justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={deleteSaleMutation.isPending}
+              onClick={() => setSaleToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={deleteSaleMutation.isPending}
+              onClick={() => {
+                if (!saleToDelete) return;
+                deleteSaleMutation.mutate(saleToDelete.id, {
+                  onSuccess: () => {
+                    toast.success(`Sale ${saleToDelete.saleNumber} deleted successfully`);
+                    setSaleToDelete(null);
+                  },
+                  onError: (err) => {
+                    toast.error(err instanceof Error ? err.message : "Failed to delete sale");
+                  },
+                });
+              }}
+            >
+              {deleteSaleMutation.isPending ? "Deleting..." : "Delete Record"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
