@@ -16,10 +16,7 @@ apiClient.interceptors.request.use((config) => {
   }
 
   if (typeof window !== "undefined") {
-    const isDark =
-      document.documentElement.classList.contains("dark") ||
-      localStorage.getItem("theme") === "dark";
-    config.headers["X-Database-Context"] = isDark ? "admin" : "normal";
+    config.headers["X-Database-Context"] = "normal";
   }
 
   return config;

@@ -2,6 +2,15 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { UserDto } from "@/lib/types";
 
+if (typeof window !== "undefined") {
+  try {
+    localStorage.setItem("theme", "light");
+    document.documentElement.classList.remove("dark");
+  } catch {
+    // ignore
+  }
+}
+
 interface AuthState {
   token: string | null;
   user: UserDto | null;

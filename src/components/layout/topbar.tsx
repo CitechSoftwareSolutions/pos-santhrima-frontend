@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useTheme } from "next-themes";
 import Link from "next/link";
-import { Menu, Moon, Sun, LogOut, User, Settings, Calendar, Clock } from "lucide-react";
+import { Menu, LogOut, User, Settings, Calendar, Clock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +35,6 @@ function initials(name: string) {
 export function Topbar() {
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
-  const { setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const queryClient = useQueryClient();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -102,24 +100,6 @@ export function Topbar() {
     };
   }, []);
 
-  function handleThemeToggle() {
-    const currentlyDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
-    const nextTheme = currentlyDark ? "light" : "dark";
-    
-    if (typeof document !== "undefined") {
-      if (nextTheme === "dark") {
-        document.documentElement.classList.add("dark");
-      } else {
-        document.documentElement.classList.remove("dark");
-      }
-    }
-
-    setTheme(nextTheme);
-
-    setTimeout(() => {
-      queryClient.invalidateQueries();
-    }, 60);
-  }
 
   const effectiveTransferActive = mounted ? isTransferActive : true;
 
@@ -205,15 +185,7 @@ export function Topbar() {
           </span>
         </button>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleThemeToggle}
-          title="Toggle mode (Light: Normal DB / Dark: Admin DB)"
-        >
-          <Sun className="size-4 rotate-0 scale-100 dark:-rotate-90 dark:scale-0 transition-all" />
-          <Moon className="absolute size-4 rotate-90 scale-0 dark:rotate-0 dark:scale-100 transition-all" />
-        </Button>
+
 
         <DropdownMenu>
           <DropdownMenuTrigger
