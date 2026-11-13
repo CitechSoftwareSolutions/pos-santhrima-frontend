@@ -11,8 +11,8 @@ import type {
 } from "@/lib/types";
 
 export interface DateRange {
-  dateFrom: string;
-  dateTo: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export const reportsApi = {
