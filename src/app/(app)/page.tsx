@@ -15,24 +15,37 @@ import {
   Moon,
   Sun,
   Layers,
+  Printer,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/store/auth-store";
 import { ROLES } from "@/lib/types";
 import { useSalesSummary, useTopProducts, useCashierSales, useCounterSales } from "@/lib/hooks/use-reports";
 import { useLowStockProducts } from "@/lib/hooks/use-products";
-import { formatCurrency, formatDate, getDateFilterRange, type DateFilterPreset } from "@/lib/format";
+import {
+  formatCurrency,
+  formatDate,
+  getDateFilterRange,
+  toDateInputValue,
+  toUtcRangeIso,
+  type DateFilterPreset,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { SuperAdminSummaryDialog } from "@/components/dashboard/super-admin-summary-dialog";
 
-const DASHBOARD_DATE_FILTERS: { value: DateFilterPreset; label: string }[] = [
+type DashboardDateFilter = DateFilterPreset | "custom";
+
+const DASHBOARD_DATE_FILTERS: { value: DashboardDateFilter; label: string }[] = [
   { value: "today", label: "Today" },
   { value: "yesterday", label: "Yesterday" },
   { value: "this_week", label: "This Week" },
   { value: "all", label: "All" },
+  { value: "custom", label: "Custom Range" },
 ];
 
 export default function DashboardPage() {
@@ -40,10 +53,21 @@ export default function DashboardPage() {
   const isSuperSuperAdmin = !!user && user.roles.includes(ROLES.SuperSuperAdmin);
   const canViewReports = !!user && (user.roles.includes(ROLES.Admin) || user.roles.includes(ROLES.Manager) || isSuperSuperAdmin);
 
-  const [dateFilter, setDateFilter] = useState<DateFilterPreset>("today");
-  const [salesViewMode, setSalesViewMode] = useState<"cashier" | "counter">("cashier");
+  const [dateFilter, setDateFilter] = useState<DashboardDateFilter>("today");
+  const todayStr = useMemo(() => toDateInputValue(new Date()), []);
+  const [customFrom, setCustomFrom] = useState<string>(todayStr);
+  const [customTo, setCustomTo] = useState<string>(todayStr);
 
-  const range = useMemo(() => getDateFilterRange(dateFilter), [dateFilter]);
+  const [salesViewMode, setSalesViewMode] = useState<"cashier" | "counter">("cashier");
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+
+  const range = useMemo(() => {
+    if (dateFilter === "custom") {
+      if (!customFrom || !customTo) return {};
+      return toUtcRangeIso(customFrom, customTo);
+    }
+    return getDateFilterRange(dateFilter);
+  }, [dateFilter, customFrom, customTo]);
 
   const summary = useSalesSummary(range);
   const topProducts = useTopProducts(range, 5);
@@ -62,6 +86,8 @@ export default function DashboardPage() {
       ? "Yesterday's"
       : dateFilter === "this_week"
       ? "This Week's"
+      : dateFilter === "custom"
+      ? "Custom Range"
       : "All-Time";
 
   const periodSuffix =
@@ -71,7 +97,19 @@ export default function DashboardPage() {
       ? "Yesterday"
       : dateFilter === "this_week"
       ? "This Week"
+      : dateFilter === "custom"
+      ? `${customFrom} to ${customTo}`
       : "All-Time";
+
+  const dateRangeText = useMemo(() => {
+    if (dateFilter === "custom") {
+      return `${customFrom} to ${customTo}`;
+    }
+    if (range.dateFrom && range.dateTo) {
+      return `${formatDate(range.dateFrom)} — ${formatDate(range.dateTo)}`;
+    }
+    return undefined;
+  }, [dateFilter, customFrom, customTo, range]);
 
   return (
     <div>
@@ -92,22 +130,53 @@ export default function DashboardPage() {
         <>
           {/* Dashboard Date Filter & Super Super Admin Dual DB Indicator */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <div className="flex items-center gap-1 rounded-xl border bg-muted/60 p-1 shadow-2xs w-fit">
-              {DASHBOARD_DATE_FILTERS.map((f) => (
-                <button
-                  key={f.value}
-                  type="button"
-                  onClick={() => setDateFilter(f.value)}
-                  className={cn(
-                    "rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
-                    dateFilter === f.value
-                      ? "bg-background text-foreground shadow-xs font-semibold"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 rounded-xl border bg-muted/60 p-1 shadow-2xs w-fit">
+                {DASHBOARD_DATE_FILTERS.map((f) => (
+                  <button
+                    key={f.value}
+                    type="button"
+                    onClick={() => setDateFilter(f.value)}
+                    className={cn(
+                      "rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+                      dateFilter === f.value
+                        ? "bg-background text-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {dateFilter === "custom" && (
+                <div className="flex items-center gap-1.5 rounded-xl border bg-card px-2.5 py-1 text-xs shadow-2xs">
+                  <span className="text-muted-foreground font-medium">From:</span>
+                  <Input
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="h-7 w-32 text-xs px-2"
+                  />
+                  <span className="text-muted-foreground font-medium">To:</span>
+                  <Input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="h-7 w-32 text-xs px-2"
+                  />
+                </div>
+              )}
+
+              {isSuperSuperAdmin && (
+                <Button
+                  onClick={() => setSummaryDialogOpen(true)}
+                  className="gap-1.5 text-xs h-8 shadow-xs font-semibold"
                 >
-                  {f.label}
-                </button>
-              ))}
+                  <Printer className="size-3.5" />
+                  Take Summary
+                </Button>
+              )}
             </div>
 
             {/* Super Super Admin Only: Dual DB breakdown pill */}
@@ -562,6 +631,16 @@ export default function DashboardPage() {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {isSuperSuperAdmin && (
+        <SuperAdminSummaryDialog
+          open={summaryDialogOpen}
+          onOpenChange={setSummaryDialogOpen}
+          range={range}
+          periodLabel={`${periodLabel} Summary`}
+          dateRangeText={dateRangeText}
+        />
       )}
     </div>
   );

@@ -832,3 +832,320 @@ export function printRegisterSummaryReport(
     }
   }, 250);
 }
+
+export interface SalesSummaryReportData {
+  reportTitle?: string;
+  periodLabel: string;
+  dateRangeText?: string;
+  totalSales: number;
+  grossRevenue: number;
+  totalDiscount: number;
+  totalTax: number;
+  netRevenue: number;
+  averageSaleValue?: number;
+  darkSalesCount?: number | null;
+  darkRevenue?: number | null;
+  lightSalesCount?: number | null;
+  lightRevenue?: number | null;
+  paymentMethods?: { method: string; amount: number; count: number }[];
+  cashierSales?: { cashierName: string; totalSales: number; totalRevenue: number }[];
+  counterSales?: { counterName: string; totalSales: number; totalRevenue: number }[];
+}
+
+export function printSalesSummaryReport(
+  summary: SalesSummaryReportData,
+  options?: PrintReceiptOptions
+) {
+  if (typeof window === "undefined") return;
+
+  const { settings, terminal } = options || {};
+  const paperWidth = terminal?.paperWidth || settings?.defaultPaperWidth || "80mm";
+  const is58mm = paperWidth === "58mm";
+  const containerWidth = is58mm ? "48mm" : "74mm";
+  const fontSize = is58mm ? "11px" : "12px";
+
+  const storeName = settings?.storeName || "සන්ත්‍රිමා ස්ටෝර්ස්";
+  const storeAddress = settings?.storeAddress || "";
+  const storePhone = settings?.storePhone || "";
+
+  const paymentMethodsHtml = (summary.paymentMethods || [])
+    .map(
+      (pm) => `
+      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+        <span>${escapeHtml(pm.method)} (${pm.count}):</span>
+        <span style="font-weight: 600;">${formatCurrency(pm.amount)}</span>
+      </div>
+    `
+    )
+    .join("");
+
+  const cashiersHtml = (summary.cashierSales || [])
+    .map(
+      (c) => `
+      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+        <span>${escapeHtml(c.cashierName)} (${c.totalSales}):</span>
+        <span style="font-weight: 600;">${formatCurrency(c.totalRevenue)}</span>
+      </div>
+    `
+    )
+    .join("");
+
+  const dbBreakdownHtml =
+    summary.darkSalesCount != null || summary.lightSalesCount != null
+      ? `
+      <div class="divider"></div>
+      <div class="bold" style="font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">
+        Database Breakdown:
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+        <span>Normal Store DB (${summary.lightSalesCount ?? 0}):</span>
+        <span style="font-weight: 600;">${formatCurrency(summary.lightRevenue ?? 0)}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+        <span>Admin DB (${summary.darkSalesCount ?? 0}):</span>
+        <span style="font-weight: 600;">${formatCurrency(summary.darkRevenue ?? 0)}</span>
+      </div>
+    `
+      : "";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(summary.reportTitle || "Sales Summary")}</title>
+        <style>
+          @page {
+            size: auto;
+            margin: 0;
+          }
+          * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+            color: #000 !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
+          body {
+            font-family: 'Nirmala UI', 'Courier New', Courier, monospace, sans-serif;
+            width: ${containerWidth};
+            max-width: ${containerWidth};
+            margin: 0 auto;
+            padding: 8px 4px 18mm 4px;
+            font-size: ${fontSize};
+            line-height: 1.35;
+          }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .bold { font-weight: 700; }
+          .title { font-size: ${is58mm ? "13px" : "15px"}; font-weight: 700; line-height: 1.2; }
+          .subtitle { font-size: 11px; margin-top: 2px; }
+          .report-tag {
+            font-size: ${is58mm ? "11px" : "12px"};
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 4px 0;
+          }
+          .divider {
+            border-bottom: 1px dashed #000;
+            margin: 6px 0;
+          }
+          .double-divider {
+            border-bottom: 2px solid #000;
+            margin: 6px 0;
+          }
+          .row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: ${is58mm ? "13px" : "14px"};
+            font-weight: 700;
+            padding: 4px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="text-center">
+          <div class="title">${escapeHtml(storeName)}</div>
+          ${storeAddress ? `<div class="subtitle">${escapeHtml(storeAddress)}</div>` : ""}
+          ${storePhone ? `<div class="subtitle">Tel: ${escapeHtml(storePhone)}</div>` : ""}
+          <div class="report-tag">${escapeHtml(summary.reportTitle || "Consolidated Sales Summary")}</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <span>Period:</span>
+          <span class="bold">${escapeHtml(summary.periodLabel)}</span>
+        </div>
+        ${
+          summary.dateRangeText
+            ? `
+        <div class="row">
+          <span>Date Range:</span>
+          <span>${escapeHtml(summary.dateRangeText)}</span>
+        </div>`
+            : ""
+        }
+
+        <div class="divider"></div>
+
+        <div class="row">
+          <span>Total Bills:</span>
+          <span class="bold">${summary.totalSales}</span>
+        </div>
+        <div class="row">
+          <span>Gross Sales:</span>
+          <span>${formatCurrency(summary.grossRevenue)}</span>
+        </div>
+        ${
+          summary.totalDiscount > 0
+            ? `
+        <div class="row">
+          <span>Total Discount:</span>
+          <span>-${formatCurrency(summary.totalDiscount)}</span>
+        </div>`
+            : ""
+        }
+        ${
+          summary.totalTax > 0
+            ? `
+        <div class="row">
+          <span>Total Tax:</span>
+          <span>${formatCurrency(summary.totalTax)}</span>
+        </div>`
+            : ""
+        }
+
+        <div class="divider"></div>
+        <div class="total-row">
+          <span>NET REVENUE:</span>
+          <span>${formatCurrency(summary.netRevenue)}</span>
+        </div>
+        <div class="divider"></div>
+
+        ${
+          summary.averageSaleValue
+            ? `
+        <div class="row">
+          <span>Avg. Sale Value:</span>
+          <span>${formatCurrency(summary.averageSaleValue)}</span>
+        </div>`
+            : ""
+        }
+
+        ${dbBreakdownHtml}
+
+        ${
+          paymentMethodsHtml
+            ? `
+        <div class="divider"></div>
+        <div class="bold" style="font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">
+          Payments by Method:
+        </div>
+        ${paymentMethodsHtml}
+        `
+            : ""
+        }
+
+        ${
+          cashiersHtml
+            ? `
+        <div class="divider"></div>
+        <div class="bold" style="font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">
+          Sales by Cashier:
+        </div>
+        ${cashiersHtml}
+        `
+            : ""
+        }
+
+        <div class="double-divider"></div>
+
+        <div class="text-center subtitle" style="margin-top: 6px;">
+          Printed: ${new Date().toLocaleString()}
+        </div>
+
+        <!-- FEED BUFFER -->
+        <div style="height: 18mm; width: 100%;" aria-hidden="true"></div>
+      </body>
+    </html>
+  `;
+
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.top = "-9999px";
+  iframe.style.left = "-9999px";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "none";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
+  document.body.appendChild(iframe);
+
+  const cleanup = () => {
+    try {
+      if (iframe.parentNode) {
+        document.body.removeChild(iframe);
+      }
+    } catch {}
+  };
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) {
+    const win = window.open("", "_blank", "width=400,height=600");
+    if (win) {
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      win.addEventListener("afterprint", () => {
+        setTimeout(() => {
+          try { win.close(); } catch {}
+        }, 500);
+      });
+      setTimeout(() => {
+        try { win.print(); } catch {}
+      }, 300);
+      setTimeout(() => {
+        try { win.close(); } catch {}
+      }, 60000);
+    }
+    cleanup();
+    return;
+  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const win = iframe.contentWindow;
+  if (win) {
+    win.addEventListener("afterprint", () => {
+      setTimeout(cleanup, 1000);
+    });
+  }
+  setTimeout(cleanup, 60000);
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch {}
+  }, 250);
+}
