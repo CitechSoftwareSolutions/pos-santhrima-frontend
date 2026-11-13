@@ -109,15 +109,58 @@ export default function SettingsPage() {
 
 function SuperAdminSettingsContent() {
   const updateCreds = useUpdateSuperAdminCredentials();
+  const settingsQuery = useStoreSettings();
+  const updateSettings = useUpdateStoreSettings();
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  const [shiftEnabled, setShiftEnabled] = useState<boolean>(true);
+  const [shiftThreshold, setShiftThreshold] = useState<string>("60000");
+
   const newUsernameRef = useRef<HTMLInputElement>(null);
   const newPasswordRef = useRef<HTMLInputElement>(null);
   const confirmPasswordRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (settingsQuery.data) {
+      setShiftEnabled(settingsQuery.data.cashierSalesShiftEnabled ?? true);
+      setShiftThreshold(
+        settingsQuery.data.cashierSalesShiftThreshold !== undefined
+          ? String(settingsQuery.data.cashierSalesShiftThreshold)
+          : "60000"
+      );
+    }
+  }, [settingsQuery.data]);
+
+  function handleSaveThreshold(e: React.FormEvent) {
+    e.preventDefault();
+    if (!settingsQuery.data) return;
+
+    const thresholdVal = parseFloat(shiftThreshold);
+    if (isNaN(thresholdVal) || thresholdVal < 1000) {
+      toast.error("Please enter a valid threshold amount (minimum Rs. 1,000).");
+      return;
+    }
+
+    updateSettings.mutate(
+      {
+        ...settingsQuery.data,
+        cashierSalesShiftEnabled: shiftEnabled,
+        cashierSalesShiftThreshold: thresholdVal,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Cashier sales shift settings updated successfully.");
+        },
+        onError: (err) => {
+          toast.error(getApiErrorMessage(err));
+        },
+      }
+    );
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -167,8 +210,67 @@ function SuperAdminSettingsContent() {
     <div className="space-y-6 max-w-4xl">
       <PageHeader
         title="Settings"
-        description="Manage master barcode credentials and security for the Admin Database."
+        description="Manage master barcode credentials, database settings, and cashier sales threshold shifting for the Admin Database."
       />
+
+      {/* Dual Database & Cashier Sales Threshold Shifting */}
+      <Card className="border-border/80 shadow-xs">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Database className="size-5 text-indigo-500" />
+              Dual Database & Cashier Sales Threshold Shifting
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="super-shift-switch" className="text-xs font-medium cursor-pointer">
+                {shiftEnabled ? "Auto-Shift Active" : "Disabled"}
+              </Label>
+              <Switch
+                id="super-shift-switch"
+                checked={shiftEnabled}
+                onCheckedChange={setShiftEnabled}
+              />
+            </div>
+          </div>
+          <CardDescription className="text-xs">
+            Configure automated shifting of cashier sales to the Admin database upon reaching a cumulative daily sales milestone.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <form onSubmit={handleSaveThreshold} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="super-shift-threshold" className="text-xs font-semibold">
+                Cashier Sales Threshold (Rs.)
+              </Label>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                <Input
+                  id="super-shift-threshold"
+                  type="number"
+                  step="1000"
+                  min="1000"
+                  placeholder="60000"
+                  value={shiftThreshold}
+                  onChange={(e) => setShiftThreshold(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Button
+                  type="submit"
+                  disabled={updateSettings.isPending || settingsQuery.isLoading}
+                  size="sm"
+                  className="gap-2 shrink-0"
+                >
+                  <Save className="size-4" />
+                  {updateSettings.isPending ? "Saving Settings..." : "Save Shift Settings"}
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                When any cashier reaches this total (default: Rs. 60,000), completed sales are automatically transferred into the Admin database and cleared from the Normal database.
+              </p>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="md:col-span-2">
@@ -273,32 +375,6 @@ function SuperAdminSettingsContent() {
         </Card>
 
         <div className="space-y-6">
-          <Card className="border-amber-500/20 bg-amber-500/5">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Database className="size-4 text-amber-500" />
-                <CardTitle className="text-base text-amber-600 dark:text-amber-400">Admin Database Connected</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2.5 text-xs text-muted-foreground">
-              <p>
-                As Super Super Admin, all your queries directly interact with the isolated <strong className="text-foreground">Admin Database</strong>.
-              </p>
-              <div className="rounded-lg bg-background/80 p-2.5 border space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-foreground">Target DB:</span>
-                  <Badge variant="outline" className="text-[11px] font-mono border-amber-500/30 text-amber-600 dark:text-amber-400">
-                    pos_system_admin
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-foreground">Live & Shifted Sales:</span>
-                  <span className="text-emerald-500 font-medium">Consolidated</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
@@ -604,8 +680,8 @@ function SettingsContent() {
         receiptFooter: storeForm.receiptFooter ?? "",
         defaultPaperWidth: storeForm.defaultPaperWidth ?? "80mm",
         hotkeyBindingsJson: storeForm.hotkeyBindingsJson ?? (settingsQuery.data?.hotkeyBindingsJson || null),
-        cashierSalesShiftThreshold: Number(storeForm.cashierSalesShiftThreshold) || 60000,
-        cashierSalesShiftEnabled: storeForm.cashierSalesShiftEnabled ?? true,
+        cashierSalesShiftThreshold: settingsQuery.data?.cashierSalesShiftThreshold ?? 60000,
+        cashierSalesShiftEnabled: settingsQuery.data?.cashierSalesShiftEnabled ?? true,
       },
       {
         onSuccess: () => toast.success("Store and Loyalty settings saved successfully"),
@@ -635,6 +711,8 @@ function SettingsContent() {
         receiptFooter: storeForm.receiptFooter ?? "",
         defaultPaperWidth: storeForm.defaultPaperWidth ?? "80mm",
         hotkeyBindingsJson: json,
+        cashierSalesShiftThreshold: settingsQuery.data?.cashierSalesShiftThreshold ?? 60000,
+        cashierSalesShiftEnabled: settingsQuery.data?.cashierSalesShiftEnabled ?? true,
       },
       {
         onSuccess: () => {
@@ -1059,73 +1137,6 @@ function SettingsContent() {
                       onChange={(e) => setStoreForm({ ...storeForm, receiptFooter: e.target.value })}
                       className="font-mono text-xs"
                     />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Card 3: Dual Database & Cashier Sales Shifting */}
-              <Card className="lg:col-span-2 border-border/80 shadow-xs">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Database className="size-5 text-indigo-500" />
-                      Dual Database & Cashier Sales Threshold Shifting
-                    </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="shift-switch" className="text-xs font-medium cursor-pointer">
-                        {storeForm.cashierSalesShiftEnabled ?? true ? "Auto-Shift Active" : "Disabled"}
-                      </Label>
-                      <Switch
-                        id="shift-switch"
-                        checked={storeForm.cashierSalesShiftEnabled ?? true}
-                        onCheckedChange={(checked) =>
-                          setStoreForm((prev) => ({ ...prev, cashierSalesShiftEnabled: checked }))
-                        }
-                      />
-                    </div>
-                  </div>
-                  <CardDescription className="text-xs">
-                    Configure automated shifting of cashier sales to the Admin database upon reaching a cumulative daily sales milestone.
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="shift-threshold" className="text-xs font-semibold">
-                        Cashier Sales Threshold (Rs.)
-                      </Label>
-                      <Input
-                        id="shift-threshold"
-                        type="number"
-                        step="1000"
-                        min="1000"
-                        placeholder="60000"
-                        value={storeForm.cashierSalesShiftThreshold ?? "60000"}
-                        onChange={(e) =>
-                          setStoreForm((prev) => ({
-                            ...prev,
-                            cashierSalesShiftThreshold: parseFloat(e.target.value) || 0,
-                          }))
-                        }
-                      />
-                      <p className="text-[11px] text-muted-foreground">
-                        When any cashier reaches this total (default: Rs. 60,000), completed sales are automatically transferred into the Admin database and cleared from the Normal database.
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-xs">
-                      <div className="font-semibold text-foreground flex items-center gap-1.5">
-                        <Sparkles className="size-4 text-amber-500" />
-                        Dual Database Navigation
-                      </div>
-                      <p className="text-muted-foreground leading-relaxed">
-                        • <strong className="text-foreground">Light Mode:</strong> Connected to the <span className="font-medium text-emerald-600">Normal Store Database</span> for real-time cashier checkout and billing.
-                      </p>
-                      <p className="text-muted-foreground leading-relaxed">
-                        • <strong className="text-foreground">Dark Mode:</strong> Connected to the <span className="font-medium text-amber-500">Admin Database</span> for reviewing shifted sales, historical records, and consolidated management reports.
-                      </p>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
