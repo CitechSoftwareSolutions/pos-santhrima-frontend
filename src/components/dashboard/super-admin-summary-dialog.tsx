@@ -7,6 +7,7 @@ import {
   Users,
   Moon,
   Sun,
+  Layers,
   Sparkles,
 } from "lucide-react";
 import {
@@ -126,14 +127,18 @@ export function SuperAdminSummaryDialog({
                   <Sparkles className="size-3.5 text-primary" />
                   Dual Database Split:
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center gap-1 rounded border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-600 dark:text-purple-400">
                     <Moon className="size-3" />
-                    Dark: {s?.darkSalesCount ?? 0} ({formatCurrency(s?.darkRevenue ?? 0)})
+                    Admin DB: {s?.darkSalesCount ?? 0} ({formatCurrency(s?.darkRevenue ?? 0)})
                   </span>
                   <span className="inline-flex items-center gap-1 rounded border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 font-medium text-sky-600 dark:text-sky-400">
                     <Sun className="size-3" />
-                    Light: {s?.lightSalesCount ?? 0} ({formatCurrency(s?.lightRevenue ?? 0)})
+                    Normal DB: {s?.lightSalesCount ?? 0} ({formatCurrency(s?.lightRevenue ?? 0)})
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded border bg-muted/70 px-2 py-0.5 font-semibold text-foreground">
+                    <Layers className="size-3 text-primary" />
+                    combined sales records: {s?.totalSales ?? 0}
                   </span>
                 </div>
               </div>

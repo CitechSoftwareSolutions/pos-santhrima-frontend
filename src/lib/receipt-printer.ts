@@ -898,12 +898,16 @@ export function printSalesSummaryReport(
         Database Breakdown:
       </div>
       <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-        <span>Normal Store DB (${summary.lightSalesCount ?? 0}):</span>
+        <span>Normal DB (${summary.lightSalesCount ?? 0}):</span>
         <span style="font-weight: 600;">${formatCurrency(summary.lightRevenue ?? 0)}</span>
       </div>
       <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
         <span>Admin DB (${summary.darkSalesCount ?? 0}):</span>
         <span style="font-weight: 600;">${formatCurrency(summary.darkRevenue ?? 0)}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+        <span>combined sales records:</span>
+        <span style="font-weight: 600;">${summary.totalSales}</span>
       </div>
     `
       : "";

@@ -184,15 +184,15 @@ export default function DashboardPage() {
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 font-medium text-purple-600 dark:text-purple-400">
                   <Moon className="size-3.5" />
-                  Dark DB: {summary.data?.darkSalesCount ?? 0} ({formatCurrency(summary.data?.darkRevenue ?? 0)})
+                  Admin DB: {summary.data?.darkSalesCount ?? 0} ({formatCurrency(summary.data?.darkRevenue ?? 0)})
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 font-medium text-sky-600 dark:text-sky-400">
                   <Sun className="size-3.5" />
-                  Light DB: {summary.data?.lightSalesCount ?? 0} ({formatCurrency(summary.data?.lightRevenue ?? 0)})
+                  Normal DB: {summary.data?.lightSalesCount ?? 0} ({formatCurrency(summary.data?.lightRevenue ?? 0)})
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-lg border bg-muted/70 px-2.5 py-1 font-semibold text-foreground">
                   <Layers className="size-3.5 text-primary" />
-                  Combined: {summary.data?.totalSales ?? 0}
+                  combined sales records: {summary.data?.totalSales ?? 0}
                 </span>
               </div>
             )}
