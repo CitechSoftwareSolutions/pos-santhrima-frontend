@@ -288,6 +288,7 @@ export interface SaleItemDto {
   promotionId: string | null;
   promotionName: string | null;
   promotionDiscountAmount: number;
+  freeQuantity?: number;
   returnedQuantity?: number;
 }
 
@@ -510,6 +511,7 @@ export interface ApiErrorResponse {
 export interface PromotionSummaryDto {
   id: string;
   name: string;
+  description?: string | null;
   type: PromotionType;
   buyQuantity: number | null;
   freeQuantity: number | null;
@@ -705,6 +707,7 @@ export interface CounterDailySummaryDto {
   totalTax: number;
   totalRevenue: number;
   paymentMethods: PaymentMethodSummaryDto[];
+  promotions?: string[] | null;
 }
 
 export * from "./cheques";
