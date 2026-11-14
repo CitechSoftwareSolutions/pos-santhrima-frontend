@@ -43,6 +43,12 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface UpdateCredentialsRequest {
+  currentPassword: string;
+  newUsername?: string;
+  newPassword?: string;
+}
+
 export interface RegisterRequest {
   fullName: string;
   email: string;
@@ -343,6 +349,7 @@ export interface SaleListItemDto {
   status: SaleStatus;
   paymentStatus: PaymentStatus;
   refundedAmount?: number;
+  sourceDb?: "dark" | "light";
 }
 
 export interface SaleQueryParams {
@@ -355,6 +362,7 @@ export interface SaleQueryParams {
   terminalId?: string;
   status?: SaleStatus;
   search?: string;
+  sourceDb?: string;
 }
 
 // ---------- Purchases (invoices) ----------
@@ -418,14 +426,18 @@ export interface PurchaseQueryParams {
 
 // ---------- Reports ----------
 export interface SalesSummaryDto {
-  dateFrom: string;
-  dateTo: string;
+  dateFrom?: string | null;
+  dateTo?: string | null;
   totalSales: number;
   grossRevenue: number;
   totalDiscount: number;
   totalTax: number;
   netRevenue: number;
   averageSaleValue: number;
+  darkSalesCount?: number | null;
+  darkRevenue?: number | null;
+  lightSalesCount?: number | null;
+  lightRevenue?: number | null;
 }
 
 export interface DailySalesDto {

@@ -154,22 +154,13 @@ export function Topbar() {
           </div>
         )}
 
-        {/* Dual Database Transfer Status Dot next to Mode Switch Button */}
+        {/* Status Dot */}
         <button
           type="button"
           onClick={handleToggleTransfer}
           disabled={toggleTransfer.isPending}
           className="relative flex size-8 items-center justify-center rounded-full transition-all hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-90 cursor-pointer disabled:opacity-60"
-          title={
-            effectiveTransferActive
-              ? "Dual Database Transfer: ACTIVE (Press [PrtScr] or click to toggle)"
-              : "Dual Database Transfer: DISABLED (Press [PrtScr] or click to toggle)"
-          }
-          aria-label={
-            effectiveTransferActive
-              ? "Dual DB Data Transfer is active"
-              : "Dual DB Data Transfer is disabled"
-          }
+          aria-label="Status indicator"
         >
           <span className="relative flex size-2.5 items-center justify-center">
             {effectiveTransferActive ? (

@@ -348,16 +348,6 @@ export const GLOBAL_SHORTCUTS: ShortcutDefinition[] = [
     allowInInput: true,
     description: "1st press clears search; 2nd press blurs; closes modals",
   },
-  {
-    id: "toggle-transfer",
-    label: "Toggle Dual DB Transfer",
-    group: "navigation",
-    codes: ["PrintScreen"],
-    keyDisplay: "PrtScr",
-    altDisplay: "SysRq",
-    allowInInput: true,
-    description: "Toggle automated sales data transfer to Admin database",
-  },
 
   // Bills & Checkout
   {

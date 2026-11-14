@@ -25,7 +25,12 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/pos", label: "Point of Sale", icon: ShoppingCart },
+  {
+    href: "/pos",
+    label: "Point of Sale",
+    icon: ShoppingCart,
+    roles: [ROLES.Admin, ROLES.Manager, ROLES.Cashier],
+  },
   { href: "/sales", label: "Sales History", icon: Receipt },
   {
     href: "/products",
@@ -39,7 +44,12 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Tags,
     roles: [ROLES.Admin, ROLES.Manager],
   },
-  { href: "/customers", label: "Customers", icon: Users },
+  {
+    href: "/customers",
+    label: "Customers",
+    icon: Users,
+    roles: [ROLES.Admin, ROLES.Manager, ROLES.Cashier],
+  },
   {
     href: "/suppliers",
     label: "Suppliers",
@@ -62,9 +72,9 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/reports",
     label: "Reports",
     icon: BarChart3,
-    roles: [ROLES.Admin, ROLES.Manager],
+    roles: [ROLES.Admin, ROLES.Manager, ROLES.SuperSuperAdmin],
   },
   { href: "/users", label: "Users", icon: UserCog, roles: [ROLES.Admin] },
   { href: "/cheques", label: "Cheques", icon: CreditCard, roles: [ROLES.Admin] },
-  { href: "/settings", label: "Settings", icon: Settings, roles: [ROLES.Admin] },
+  { href: "/settings", label: "Settings", icon: Settings, roles: [ROLES.Admin, ROLES.SuperSuperAdmin] },
 ];

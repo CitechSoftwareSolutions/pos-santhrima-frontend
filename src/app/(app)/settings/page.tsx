@@ -85,14 +85,318 @@ import { formatCurrency } from "@/lib/format";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { playScannerBeep, triggerTestPrint } from "@/lib/hardware-utils";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/auth-store";
+import { useUpdateSuperAdminCredentials } from "@/lib/hooks/use-auth";
+import { PasswordInput } from "@/components/ui/password-input";
+import { PageHeader } from "@/components/shared/page-header";
 
 export default function SettingsPage() {
+  const user = useAuthStore((s) => s.user);
+  const isSuperSuperAdmin = !!user && user.roles.includes(ROLES.SuperSuperAdmin);
+
   return (
-    <RequireRole roles={[ROLES.Admin]}>
-      <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading settings...</div>}>
-        <SettingsContent />
-      </Suspense>
+    <RequireRole roles={[ROLES.Admin, ROLES.SuperSuperAdmin]}>
+      {isSuperSuperAdmin ? (
+        <SuperAdminSettingsContent />
+      ) : (
+        <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading settings...</div>}>
+          <SettingsContent />
+        </Suspense>
+      )}
     </RequireRole>
+  );
+}
+
+function SuperAdminSettingsContent() {
+  const updateCreds = useUpdateSuperAdminCredentials();
+  const settingsQuery = useStoreSettings();
+  const updateSettings = useUpdateStoreSettings();
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [shiftEnabled, setShiftEnabled] = useState<boolean>(true);
+  const [shiftThreshold, setShiftThreshold] = useState<string>("60000");
+
+  const newUsernameRef = useRef<HTMLInputElement>(null);
+  const newPasswordRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (settingsQuery.data) {
+      setShiftEnabled(settingsQuery.data.cashierSalesShiftEnabled ?? true);
+      setShiftThreshold(
+        settingsQuery.data.cashierSalesShiftThreshold !== undefined
+          ? String(settingsQuery.data.cashierSalesShiftThreshold)
+          : "60000"
+      );
+    }
+  }, [settingsQuery.data]);
+
+  function handleSaveThreshold(e: React.FormEvent) {
+    e.preventDefault();
+    if (!settingsQuery.data) return;
+
+    const thresholdVal = parseFloat(shiftThreshold);
+    if (isNaN(thresholdVal) || thresholdVal < 1000) {
+      toast.error("Please enter a valid threshold amount (minimum Rs. 1,000).");
+      return;
+    }
+
+    updateSettings.mutate(
+      {
+        ...settingsQuery.data,
+        cashierSalesShiftEnabled: shiftEnabled,
+        cashierSalesShiftThreshold: thresholdVal,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Cashier sales shift settings updated successfully.");
+        },
+        onError: (err) => {
+          toast.error(getApiErrorMessage(err));
+        },
+      }
+    );
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!currentPassword) {
+      toast.error("Please enter your current barcode/password.");
+      return;
+    }
+
+    if (!newUsername.trim() && !newPassword) {
+      toast.error("Please provide a new username or new password to update.");
+      return;
+    }
+
+    if (newPassword && newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters/digits.");
+      return;
+    }
+
+    if (newPassword && newPassword !== confirmPassword) {
+      toast.error("New password and confirm password do not match.");
+      return;
+    }
+
+    updateCreds.mutate(
+      {
+        currentPassword,
+        newUsername: newUsername.trim() || undefined,
+        newPassword: newPassword || undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Security credentials updated successfully in both databases.");
+          setCurrentPassword("");
+          setNewUsername("");
+          setNewPassword("");
+          setConfirmPassword("");
+        },
+        onError: (err) => {
+          toast.error(getApiErrorMessage(err));
+        },
+      }
+    );
+  }
+
+  return (
+    <div className="space-y-6 max-w-4xl">
+      <PageHeader
+        title="Settings"
+        description="Manage master barcode credentials, database settings, and cashier sales threshold shifting for the Admin Database."
+      />
+
+      {/* Dual Database & Cashier Sales Threshold Shifting */}
+      <Card className="border-border/80 shadow-xs">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Database className="size-5 text-indigo-500" />
+              Dual Database & Cashier Sales Threshold Shifting
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="super-shift-switch" className="text-xs font-medium cursor-pointer">
+                {shiftEnabled ? "Auto-Shift Active" : "Disabled"}
+              </Label>
+              <Switch
+                id="super-shift-switch"
+                checked={shiftEnabled}
+                onCheckedChange={setShiftEnabled}
+              />
+            </div>
+          </div>
+          <CardDescription className="text-xs">
+            Configure automated shifting of cashier sales to the Admin database upon reaching a cumulative daily sales milestone.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <form onSubmit={handleSaveThreshold} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="super-shift-threshold" className="text-xs font-semibold">
+                Cashier Sales Threshold (Rs.)
+              </Label>
+              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                <Input
+                  id="super-shift-threshold"
+                  type="number"
+                  step="1000"
+                  min="1000"
+                  placeholder="60000"
+                  value={shiftThreshold}
+                  onChange={(e) => setShiftThreshold(e.target.value)}
+                  className="max-w-xs"
+                />
+                <Button
+                  type="submit"
+                  disabled={updateSettings.isPending || settingsQuery.isLoading}
+                  size="sm"
+                  className="gap-2 shrink-0"
+                >
+                  <Save className="size-4" />
+                  {updateSettings.isPending ? "Saving Settings..." : "Save Shift Settings"}
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                When any cashier reaches this total (default: Rs. 60,000), completed sales are automatically transferred into the Admin database and cleared from the Normal database.
+              </p>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <KeyRound className="size-5 text-primary" />
+              <CardTitle className="text-lg">Change Master Credentials</CardTitle>
+            </div>
+            <CardDescription>
+              Update your authentication credentials. You can type or scan standard product barcodes directly into any field.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="current-barcode-pass">Current Password / Barcode</Label>
+                <PasswordInput
+                  id="current-barcode-pass"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Scan or enter current barcode"
+                  required
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      newUsernameRef.current?.focus();
+                    }
+                  }}
+                />
+              </div>
+
+              <Separator className="my-2" />
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="new-barcode-user">New Username / Barcode</Label>
+                  <span className="text-xs text-muted-foreground">Leave blank if keeping current</span>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="new-barcode-user"
+                    ref={newUsernameRef}
+                    type="text"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    placeholder="Scan or enter new product barcode"
+                    className="pr-10"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        newPasswordRef.current?.focus();
+                      }
+                    }}
+                  />
+                  <ScanBarcode className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground opacity-60" />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="new-barcode-pass">New Password / Barcode</Label>
+                  <span className="text-xs text-muted-foreground">Min 8 characters/digits</span>
+                </div>
+                <PasswordInput
+                  id="new-barcode-pass"
+                  ref={newPasswordRef}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Scan or enter new password barcode"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      confirmPasswordRef.current?.focus();
+                    }
+                  }}
+                />
+              </div>
+
+              {newPassword && (
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-barcode-pass">Confirm New Password / Barcode</Label>
+                  <PasswordInput
+                    id="confirm-barcode-pass"
+                    ref={confirmPasswordRef}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter or scan confirmation"
+                    required={!!newPassword}
+                  />
+                </div>
+              )}
+
+              <div className="pt-2">
+                <Button type="submit" disabled={updateCreds.isPending} className="w-full sm:w-auto">
+                  <Save className="size-4 mr-2" />
+                  {updateCreds.isPending ? "Updating Credentials..." : "Save Credentials"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <ScanBarcode className="size-4 text-primary" />
+                <CardTitle className="text-sm">Barcode Scanner Instructions</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="text-xs text-muted-foreground space-y-2">
+              <p>
+                1. Click into any credential field.
+              </p>
+              <p>
+                2. Aim your optical or laser scanner at any physical product barcode.
+              </p>
+              <p>
+                3. The scanner will instantly populate the field and automatically advance to the next step.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -376,8 +680,8 @@ function SettingsContent() {
         receiptFooter: storeForm.receiptFooter ?? "",
         defaultPaperWidth: storeForm.defaultPaperWidth ?? "80mm",
         hotkeyBindingsJson: storeForm.hotkeyBindingsJson ?? (settingsQuery.data?.hotkeyBindingsJson || null),
-        cashierSalesShiftThreshold: Number(storeForm.cashierSalesShiftThreshold) || 60000,
-        cashierSalesShiftEnabled: storeForm.cashierSalesShiftEnabled ?? true,
+        cashierSalesShiftThreshold: settingsQuery.data?.cashierSalesShiftThreshold ?? 60000,
+        cashierSalesShiftEnabled: settingsQuery.data?.cashierSalesShiftEnabled ?? true,
       },
       {
         onSuccess: () => toast.success("Store and Loyalty settings saved successfully"),
@@ -407,6 +711,8 @@ function SettingsContent() {
         receiptFooter: storeForm.receiptFooter ?? "",
         defaultPaperWidth: storeForm.defaultPaperWidth ?? "80mm",
         hotkeyBindingsJson: json,
+        cashierSalesShiftThreshold: settingsQuery.data?.cashierSalesShiftThreshold ?? 60000,
+        cashierSalesShiftEnabled: settingsQuery.data?.cashierSalesShiftEnabled ?? true,
       },
       {
         onSuccess: () => {
@@ -831,73 +1137,6 @@ function SettingsContent() {
                       onChange={(e) => setStoreForm({ ...storeForm, receiptFooter: e.target.value })}
                       className="font-mono text-xs"
                     />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Card 3: Dual Database & Cashier Sales Shifting */}
-              <Card className="lg:col-span-2 border-border/80 shadow-xs">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <Database className="size-5 text-indigo-500" />
-                      Dual Database & Cashier Sales Threshold Shifting
-                    </CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="shift-switch" className="text-xs font-medium cursor-pointer">
-                        {storeForm.cashierSalesShiftEnabled ?? true ? "Auto-Shift Active" : "Disabled"}
-                      </Label>
-                      <Switch
-                        id="shift-switch"
-                        checked={storeForm.cashierSalesShiftEnabled ?? true}
-                        onCheckedChange={(checked) =>
-                          setStoreForm((prev) => ({ ...prev, cashierSalesShiftEnabled: checked }))
-                        }
-                      />
-                    </div>
-                  </div>
-                  <CardDescription className="text-xs">
-                    Configure automated shifting of cashier sales to the Admin database upon reaching a cumulative daily sales milestone.
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="shift-threshold" className="text-xs font-semibold">
-                        Cashier Sales Threshold (Rs.)
-                      </Label>
-                      <Input
-                        id="shift-threshold"
-                        type="number"
-                        step="1000"
-                        min="1000"
-                        placeholder="60000"
-                        value={storeForm.cashierSalesShiftThreshold ?? "60000"}
-                        onChange={(e) =>
-                          setStoreForm((prev) => ({
-                            ...prev,
-                            cashierSalesShiftThreshold: parseFloat(e.target.value) || 0,
-                          }))
-                        }
-                      />
-                      <p className="text-[11px] text-muted-foreground">
-                        When any cashier reaches this total (default: Rs. 60,000), completed sales are automatically transferred into the Admin database and cleared from the Normal database.
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-xs">
-                      <div className="font-semibold text-foreground flex items-center gap-1.5">
-                        <Sparkles className="size-4 text-amber-500" />
-                        Dual Database Navigation
-                      </div>
-                      <p className="text-muted-foreground leading-relaxed">
-                        • <strong className="text-foreground">Light Mode:</strong> Connected to the <span className="font-medium text-emerald-600">Normal Store Database</span> for real-time cashier checkout and billing.
-                      </p>
-                      <p className="text-muted-foreground leading-relaxed">
-                        • <strong className="text-foreground">Dark Mode:</strong> Connected to the <span className="font-medium text-amber-500">Admin Database</span> for reviewing shifted sales, historical records, and consolidated management reports.
-                      </p>
-                    </div>
                   </div>
                 </CardContent>
               </Card>

@@ -13,6 +13,9 @@ import {
   Trash2,
   Eye,
   AlertTriangle,
+  Database,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -56,17 +59,25 @@ import { ROLES, SaleStatus, type SaleListItemDto } from "@/lib/types";
 
 export default function SalesPage() {
   const currentUser = useAuthStore((s) => s.user);
-  const canManage = useAuthStore((s) => s.hasRole(ROLES.Admin, ROLES.Manager));
-  const canReturn = useAuthStore((s) => s.hasRole(ROLES.Admin, ROLES.Manager, ROLES.Cashier));
+  const isSuperSuperAdmin = !!currentUser && currentUser.roles.includes(ROLES.SuperSuperAdmin);
+  const canManage = useAuthStore((s) => s.hasRole(ROLES.Admin, ROLES.Manager)) || isSuperSuperAdmin;
+  const canReturn = useAuthStore((s) => s.hasRole(ROLES.Admin, ROLES.Manager, ROLES.Cashier)) || isSuperSuperAdmin;
   const { activeTerminal, terminals, assignedId } = useActiveTerminal();
+
+  const isElevatedUser =
+    isSuperSuperAdmin ||
+    currentUser?.roles.includes(ROLES.Admin) ||
+    currentUser?.roles.includes(ROLES.Manager);
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilterPreset>("today");
-  const [cashierId, setCashierId] = useState<string>(() => currentUser?.id ?? "all");
+  const [cashierId, setCashierId] = useState<string>(() => (isElevatedUser ? "all" : (currentUser?.id ?? "all")));
+  const [sourceDb, setSourceDb] = useState<string>("all");
   const [initializedDefaultUser, setInitializedDefaultUser] = useState<boolean>(() => Boolean(currentUser?.id));
 
   const [terminalId, setTerminalId] = useState<string>(() => {
+    if (isSuperSuperAdmin) return "all";
     if (typeof window !== "undefined") {
       try {
         return localStorage.getItem("pos_assigned_terminal_id") || "all";
@@ -206,18 +217,26 @@ export default function SalesPage() {
   // If currentUser was not available initially (e.g. hydration delay), initialize once
   useEffect(() => {
     if (!initializedDefaultUser && currentUser?.id) {
-      setCashierId(currentUser.id);
+      const isElevated =
+        currentUser.roles.includes(ROLES.SuperSuperAdmin) ||
+        currentUser.roles.includes(ROLES.Admin) ||
+        currentUser.roles.includes(ROLES.Manager);
+      setCashierId(isElevated ? "all" : currentUser.id);
       setInitializedDefaultUser(true);
     }
-  }, [currentUser?.id, initializedDefaultUser]);
+  }, [currentUser, initializedDefaultUser]);
 
   // If assigned counter ID was not yet loaded into state, initialize once it's available
   useEffect(() => {
     if (!initializedDefaultTerminal && (activeTerminal?.id || assignedId)) {
-      setTerminalId(activeTerminal?.id || assignedId || "all");
+      if (isSuperSuperAdmin) {
+        setTerminalId("all");
+      } else {
+        setTerminalId(activeTerminal?.id || assignedId || "all");
+      }
       setInitializedDefaultTerminal(true);
     }
-  }, [activeTerminal?.id, assignedId, initializedDefaultTerminal]);
+  }, [activeTerminal?.id, assignedId, initializedDefaultTerminal, isSuperSuperAdmin]);
 
   const users = useUsers();
   const currentCounterId = activeTerminal?.id || assignedId;
@@ -270,6 +289,7 @@ export default function SalesPage() {
     dateTo: isSearching ? undefined : dateRange.dateTo,
     cashierId: isSearching ? undefined : (cashierId !== "all" ? cashierId : undefined),
     terminalId: isSearching ? undefined : (terminalId !== "all" ? terminalId : undefined),
+    sourceDb: isSuperSuperAdmin && sourceDb !== "all" ? sourceDb : undefined,
   });
 
   const handleFilterChange = (filter: DateFilterPreset) => {
@@ -277,13 +297,14 @@ export default function SalesPage() {
     setPage(1);
   };
 
-  const defaultTerminalId = currentCounterId ?? "all";
-  const defaultCashierId = currentUser?.id ?? "all";
+  const defaultTerminalId = isSuperSuperAdmin ? "all" : (currentCounterId ?? "all");
+  const defaultCashierId = isElevatedUser ? "all" : (currentUser?.id ?? "all");
 
   const hasActiveFilters =
     search !== "" ||
     cashierId !== defaultCashierId ||
     terminalId !== defaultTerminalId ||
+    (isSuperSuperAdmin && sourceDb !== "all") ||
     dateFilter !== "today";
 
   const clearAllFilters = () => {
@@ -291,6 +312,7 @@ export default function SalesPage() {
     setDateFilter("today");
     setCashierId(defaultCashierId);
     setTerminalId(defaultTerminalId);
+    setSourceDb("all");
     setPage(1);
   };
 
@@ -493,6 +515,44 @@ export default function SalesPage() {
             </Select>
           </div>
 
+          {/* Database Filter (Super Super Admin Only) */}
+          {isSuperSuperAdmin && (
+            <div className="w-full sm:w-56">
+              <Select
+                items={[
+                  { value: "all", label: "All Databases (Both)" },
+                  { value: "dark", label: "Dark DB (Admin DB)" },
+                  { value: "light", label: "Light DB (Normal DB)" },
+                ]}
+                value={sourceDb}
+                onValueChange={(v) => {
+                  setSourceDb(v ?? "all");
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Database className="size-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                    <SelectValue placeholder="All Databases">
+                      {(val: string | null) =>
+                        val === "dark"
+                          ? "Dark DB (Admin)"
+                          : val === "light"
+                          ? "Light DB (Normal)"
+                          : "All Databases (Both)"
+                      }
+                    </SelectValue>
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Databases (Both)</SelectItem>
+                  <SelectItem value="dark">Dark DB (Admin DB)</SelectItem>
+                  <SelectItem value="light">Light DB (Normal DB)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Reset Filters button if any active */}
           {hasActiveFilters && (
             <Button
@@ -522,6 +582,7 @@ export default function SalesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Receipt #</TableHead>
+                  {isSuperSuperAdmin && <TableHead>Database</TableHead>}
                   <TableHead>Date</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Cashier</TableHead>
@@ -540,6 +601,21 @@ export default function SalesPage() {
                     onClick={() => setSelectedSaleId(sale.id)}
                   >
                     <TableCell className="font-medium">{sale.saleNumber}</TableCell>
+                    {isSuperSuperAdmin && (
+                      <TableCell>
+                        {sale.sourceDb === "dark" ? (
+                          <span className="inline-flex items-center gap-1 rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                            <Moon className="size-3" />
+                            Dark DB
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[11px] font-semibold text-sky-600 dark:text-sky-400">
+                            <Sun className="size-3" />
+                            Light DB
+                          </span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="text-muted-foreground">{formatDate(sale.saleDate)}</TableCell>
                     <TableCell className="text-muted-foreground">{sale.customerName || "Walk-in"}</TableCell>
                     <TableCell className="text-muted-foreground">{sale.cashierName}</TableCell>

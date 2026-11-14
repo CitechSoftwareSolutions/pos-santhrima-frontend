@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   DollarSign,
@@ -12,29 +12,62 @@ import {
   Users,
   UserCheck,
   Monitor,
+  Moon,
+  Sun,
+  Layers,
+  Printer,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/store/auth-store";
 import { ROLES } from "@/lib/types";
 import { useSalesSummary, useTopProducts, useCashierSales, useCounterSales } from "@/lib/hooks/use-reports";
 import { useLowStockProducts } from "@/lib/hooks/use-products";
-import { formatCurrency, formatDate, toDateInputValue, toUtcRangeIso } from "@/lib/format";
+import {
+  formatCurrency,
+  formatDate,
+  getDateFilterRange,
+  toDateInputValue,
+  toUtcRangeIso,
+  type DateFilterPreset,
+} from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { SuperAdminSummaryDialog } from "@/components/dashboard/super-admin-summary-dialog";
 
-function todayRange() {
-  const today = toDateInputValue(new Date());
-  return toUtcRangeIso(today, today);
-}
+type DashboardDateFilter = DateFilterPreset | "custom";
+
+const DASHBOARD_DATE_FILTERS: { value: DashboardDateFilter; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "this_week", label: "This Week" },
+  { value: "all", label: "All" },
+  { value: "custom", label: "Custom Range" },
+];
 
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
-  const canViewReports = !!user && (user.roles.includes(ROLES.Admin) || user.roles.includes(ROLES.Manager));
-  const range = todayRange();
+  const isSuperSuperAdmin = !!user && user.roles.includes(ROLES.SuperSuperAdmin);
+  const canViewReports = !!user && (user.roles.includes(ROLES.Admin) || user.roles.includes(ROLES.Manager) || isSuperSuperAdmin);
+
+  const [dateFilter, setDateFilter] = useState<DashboardDateFilter>("today");
+  const todayStr = useMemo(() => toDateInputValue(new Date()), []);
+  const [customFrom, setCustomFrom] = useState<string>(todayStr);
+  const [customTo, setCustomTo] = useState<string>(todayStr);
 
   const [salesViewMode, setSalesViewMode] = useState<"cashier" | "counter">("cashier");
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+
+  const range = useMemo(() => {
+    if (dateFilter === "custom") {
+      if (!customFrom || !customTo) return {};
+      return toUtcRangeIso(customFrom, customTo);
+    }
+    return getDateFilterRange(dateFilter);
+  }, [dateFilter, customFrom, customTo]);
 
   const summary = useSalesSummary(range);
   const topProducts = useTopProducts(range, 5);
@@ -46,34 +79,138 @@ export default function DashboardPage() {
   const totalCashierTransactions = cashierSales.data?.reduce((sum, c) => sum + c.totalSales, 0) ?? 0;
   const totalCounterRevenue = counterSales.data?.reduce((sum, c) => sum + c.totalRevenue, 0) ?? 0;
 
+  const periodLabel =
+    dateFilter === "today"
+      ? "Today's"
+      : dateFilter === "yesterday"
+      ? "Yesterday's"
+      : dateFilter === "this_week"
+      ? "This Week's"
+      : dateFilter === "custom"
+      ? "Custom Range"
+      : "All-Time";
+
+  const periodSuffix =
+    dateFilter === "today"
+      ? "Today"
+      : dateFilter === "yesterday"
+      ? "Yesterday"
+      : dateFilter === "this_week"
+      ? "This Week"
+      : dateFilter === "custom"
+      ? `${customFrom} to ${customTo}`
+      : "All-Time";
+
+  const dateRangeText = useMemo(() => {
+    if (dateFilter === "custom") {
+      return `${customFrom} to ${customTo}`;
+    }
+    if (range.dateFrom && range.dateTo) {
+      return `${formatDate(range.dateFrom)} — ${formatDate(range.dateTo)}`;
+    }
+    return undefined;
+  }, [dateFilter, customFrom, customTo, range]);
+
   return (
     <div>
       <PageHeader
         title={`Welcome back, ${user?.fullName?.split(" ")[0] ?? ""}`}
-        description="Here's what's happening in your store today."
+        description={`Here's what's happening in your store ${dateFilter === "all" ? "across all time" : periodSuffix.toLowerCase()}.`}
         actions={
-          <Button render={<Link href="/pos" />} nativeButton={false}>
-            <ShoppingCart className="size-4" />
-            New Sale
-          </Button>
+          !isSuperSuperAdmin ? (
+            <Button render={<Link href="/pos" />} nativeButton={false}>
+              <ShoppingCart className="size-4" />
+              New Sale
+            </Button>
+          ) : undefined
         }
       />
 
       {canViewReports ? (
         <>
+          {/* Dashboard Date Filter & Super Super Admin Dual DB Indicator */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 rounded-xl border bg-muted/60 p-1 shadow-2xs w-fit">
+                {DASHBOARD_DATE_FILTERS.map((f) => (
+                  <button
+                    key={f.value}
+                    type="button"
+                    onClick={() => setDateFilter(f.value)}
+                    className={cn(
+                      "rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+                      dateFilter === f.value
+                        ? "bg-background text-foreground shadow-xs font-semibold"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {dateFilter === "custom" && (
+                <div className="flex items-center gap-1.5 rounded-xl border bg-card px-2.5 py-1 text-xs shadow-2xs">
+                  <span className="text-muted-foreground font-medium">From:</span>
+                  <Input
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="h-7 w-32 text-xs px-2"
+                  />
+                  <span className="text-muted-foreground font-medium">To:</span>
+                  <Input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="h-7 w-32 text-xs px-2"
+                  />
+                </div>
+              )}
+
+              {isSuperSuperAdmin && (
+                <Button
+                  onClick={() => setSummaryDialogOpen(true)}
+                  className="gap-1.5 text-xs h-8 shadow-xs font-semibold"
+                >
+                  <Printer className="size-3.5" />
+                  Take Summary
+                </Button>
+              )}
+            </div>
+
+            {/* Super Super Admin Only: Dual DB breakdown pill */}
+            {isSuperSuperAdmin && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 font-medium text-purple-600 dark:text-purple-400">
+                  <Moon className="size-3.5" />
+                  Admin DB: {summary.data?.darkSalesCount ?? 0} ({formatCurrency(summary.data?.darkRevenue ?? 0)})
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-1 font-medium text-sky-600 dark:text-sky-400">
+                  <Sun className="size-3.5" />
+                  Normal DB: {summary.data?.lightSalesCount ?? 0} ({formatCurrency(summary.data?.lightRevenue ?? 0)})
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-lg border bg-muted/70 px-2.5 py-1 font-semibold text-foreground">
+                  <Layers className="size-3.5 text-primary" />
+                  combined sales records: {summary.data?.totalSales ?? 0}
+                </span>
+              </div>
+            )}
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {summary.isLoading ? (
               Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)
             ) : (
               <>
                 <StatCard
-                  label="Today's Revenue"
+                  label={`${periodLabel} Revenue`}
                   value={formatCurrency(summary.data?.netRevenue ?? 0)}
                   icon={DollarSign}
                   tone="success"
                 />
                 <StatCard
-                  label="Sales Today"
+                  label={`Sales ${periodSuffix}`}
                   value={String(summary.data?.totalSales ?? 0)}
                   icon={Receipt}
                 />
@@ -104,8 +241,15 @@ export default function DashboardPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <CardTitle className="text-base font-semibold">
-                      {salesViewMode === "cashier" ? "Today's Cashier-Wise Sales" : "Today's Counter-Wise Sales"}
+                      {salesViewMode === "cashier"
+                        ? `${periodLabel} Cashier-Wise Sales`
+                        : `${periodLabel} Counter-Wise Sales`}
                     </CardTitle>
+                    {isSuperSuperAdmin && (
+                      <span className="inline-flex items-center rounded-full bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 text-[10px] font-medium text-purple-600 dark:text-purple-400">
+                        Dark + Light DB
+                      </span>
+                    )}
                     <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
                       Live
                     </span>
@@ -282,7 +426,7 @@ export default function DashboardPage() {
                           <div className="flex size-11 items-center justify-center rounded-full bg-muted/80 text-muted-foreground">
                             <UserCheck className="size-5" />
                           </div>
-                          <p className="text-sm font-medium text-foreground">No Cashier Sales Yet Today</p>
+                          <p className="text-sm font-medium text-foreground">No Cashier Sales For This Period</p>
                           <p className="text-xs text-muted-foreground max-w-sm">
                             Cashiers who complete sales at any counter terminal will appear here automatically in real time.
                           </p>
@@ -391,7 +535,7 @@ export default function DashboardPage() {
                           <div className="flex size-11 items-center justify-center rounded-full bg-muted/80 text-muted-foreground">
                             <Monitor className="size-5" />
                           </div>
-                          <p className="text-sm font-medium text-foreground">No Counter Sales Yet Today</p>
+                          <p className="text-sm font-medium text-foreground">No Counter Sales For This Period</p>
                           <p className="text-xs text-muted-foreground max-w-sm">
                             Checkout transactions performed at cash registers will be grouped and displayed here by counter.
                           </p>
@@ -407,7 +551,7 @@ export default function DashboardPage() {
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader className="flex-row items-center justify-between">
-                <CardTitle className="text-base">Top Products Today</CardTitle>
+                <CardTitle className="text-base">Top Products ({periodSuffix})</CardTitle>
                 <Link href="/reports" className="text-sm text-primary hover:underline flex items-center gap-1">
                   View reports <ArrowRight className="size-3.5" />
                 </Link>
@@ -431,7 +575,7 @@ export default function DashboardPage() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="py-8 text-center text-sm text-muted-foreground">No sales yet today.</p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">No sales yet for this period.</p>
                 )}
               </CardContent>
             </Card>
@@ -487,6 +631,16 @@ export default function DashboardPage() {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {isSuperSuperAdmin && (
+        <SuperAdminSummaryDialog
+          open={summaryDialogOpen}
+          onOpenChange={setSummaryDialogOpen}
+          range={range}
+          periodLabel={`${periodLabel} Summary`}
+          dateRangeText={dateRangeText}
+        />
       )}
     </div>
   );

@@ -39,13 +39,14 @@ export function toUtcRangeIso(dateFromLocal: string, dateToLocal: string): { dat
   return { dateFrom: start.toISOString(), dateTo: endExclusive.toISOString() };
 }
 
-export type DateFilterPreset = "today" | "yesterday" | "this_week" | "this_month";
+export type DateFilterPreset = "today" | "yesterday" | "this_week" | "this_month" | "all";
 
 export const DATE_FILTER_OPTIONS: { value: DateFilterPreset; label: string }[] = [
   { value: "today", label: "Today" },
   { value: "yesterday", label: "Yesterday" },
   { value: "this_week", label: "This Week" },
   { value: "this_month", label: "This Month" },
+  { value: "all", label: "All" },
 ];
 
 export function getDateFilterRange(preset: DateFilterPreset): { dateFrom?: string; dateTo?: string } {
@@ -74,6 +75,9 @@ export function getDateFilterRange(preset: DateFilterPreset): { dateFrom?: strin
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       return toUtcRangeIso(toDateInputValue(firstDay), toDateInputValue(lastDay));
+    }
+    case "all": {
+      return { dateFrom: undefined, dateTo: undefined };
     }
   }
 }
