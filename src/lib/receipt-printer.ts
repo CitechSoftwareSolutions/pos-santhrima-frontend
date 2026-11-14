@@ -41,6 +41,13 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
           }</span>
           <span style="font-weight: 600;">${formatCurrency(item.lineTotal)}</span>
         </div>
+        ${
+          item.freeQuantity && item.freeQuantity > 0
+            ? `<div style="font-size: ${is58mm ? "10px" : "11px"}; font-weight: 600; color: #15803d; margin-top: 1px;">
+                Free: ${item.freeQuantity}x ${escapeHtml(item.promotionName || "Promotion")}
+              </div>`
+            : ""
+        }
       </div>
     `,
     )
@@ -198,6 +205,18 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
           <span>-${formatCurrency(sale.loyaltyPointsRedeemed)}</span>
         </div>`
             : ""
+        }
+        ${
+          sale.items
+            .filter((i) => (i.freeQuantity ?? 0) > 0)
+            .map(
+              (i) => `
+        <div class="row" style="color: #15803d; font-weight: 600;">
+          <span>${i.freeQuantity}x ${escapeHtml(i.promotionName || "Discount")}:</span>
+          <span>Free</span>
+        </div>`,
+            )
+            .join("")
         }
         ${
           sale.discountAmount > 0
@@ -753,6 +772,28 @@ export function printRegisterSummaryReport(
           Payments by Method:
         </div>
         ${paymentMethodsHtml}
+
+        ${
+          summary.promotions && summary.promotions.length > 0
+            ? `
+        <div class="divider"></div>
+        <div class="bold" style="font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">
+          Promotions Given:
+        </div>
+        ${summary.promotions
+          .map(
+            (p) => {
+              const cleanPromo = p.replace(/^(\d+)\.0+x/i, "$1x").replace(/^(\d+\.\d*?[1-9])0+x/i, "$1x");
+              return `
+        <div class="row" style="font-size: ${is58mm ? "10px" : "11px"}; color: #15803d; font-weight: 600;">
+          <span>${escapeHtml(cleanPromo)}</span>
+        </div>`;
+            },
+          )
+          .join("")}
+        `
+            : ""
+        }
 
         <div class="double-divider"></div>
 

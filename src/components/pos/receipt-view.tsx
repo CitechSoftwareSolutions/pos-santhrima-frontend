@@ -82,6 +82,11 @@ export function ReceiptView({
                   </span>
                 )}
               </p>
+              {Boolean(item.freeQuantity && item.freeQuantity > 0) && (
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold mt-0.5">
+                  Free: {item.freeQuantity}x {item.promotionName || "Promotion"}
+                </p>
+              )}
             </div>
             <span className="shrink-0 font-semibold text-right">{formatCurrency(item.lineTotal)}</span>
           </div>
@@ -102,6 +107,14 @@ export function ReceiptView({
             <span className="shrink-0">-{formatCurrency(sale.loyaltyPointsRedeemed)}</span>
           </div>
         )}
+        {sale.items
+          .filter((i) => (i.freeQuantity ?? 0) > 0)
+          .map((item) => (
+            <div key={`free-item-${item.id}`} className="flex justify-between gap-2 text-emerald-700 dark:text-emerald-400 font-medium">
+              <span className="truncate">{item.freeQuantity}x {item.promotionName || "Discount"}</span>
+              <span className="shrink-0 font-semibold">Free</span>
+            </div>
+          ))}
         {sale.discountAmount > 0 && (
           <div className="flex justify-between gap-2">
             <span className="opacity-75">Discount</span>

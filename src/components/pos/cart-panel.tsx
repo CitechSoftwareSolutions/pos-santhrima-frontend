@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   Minus,
@@ -25,8 +25,9 @@ import { useActiveBill, useCartStore } from "@/store/cart-store";
 import { useClaimMilestoneGift, useCustomer } from "@/lib/hooks/use-customers";
 import { CustomerPicker } from "./customer-picker";
 import { PaymentDialog } from "./payment-dialog";
+import { PromotionAlertDialog } from "./promotion-alert-dialog";
 import { calculateCartTotals, calculateLinePromotionDiscount } from "@/lib/cart-calc";
-import { describePromotion } from "@/lib/promotion-utils";
+import { describePromotion, evaluatePromotion } from "@/lib/promotion-utils";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api/client";
@@ -135,6 +136,7 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
   const [editingPriceValue, setEditingPriceValue] = useState("");
   const [quantityDraft, setQuantityDraft] = useState<{ id: string; value: string } | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [promotionAlertOpen, setPromotionAlertOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const customerQuery = useCustomer(customerId);
@@ -166,6 +168,20 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
   const totals = calculateCartTotals(lines, discountAmount + effectivePointsDiscount);
   const discountKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("discount", "D"));
   const chargeKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("charge", "F9"));
+
+  const activeEvaluations = useMemo(() => {
+    return lines
+      .filter((l) => l.product.activePromotion)
+      .map((l) =>
+        evaluatePromotion(
+          l.product.activePromotion,
+          l.product.name,
+          l.quantity,
+          l.unitPrice,
+        ),
+      )
+      .filter((e) => e.isMet);
+  }, [lines]);
 
   return (
     <div className="flex h-full max-h-full flex-col rounded-xl border bg-background overflow-hidden shadow-sm">
@@ -288,6 +304,9 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
             {lines.map((line) => {
               const step = line.product.allowDecimalQuantity ? 0.1 : 1;
               const promotionDiscount = calculateLinePromotionDiscount(line);
+              const lineEvaluation = line.product.activePromotion
+                ? evaluatePromotion(line.product.activePromotion, line.product.name, line.quantity, line.unitPrice)
+                : null;
               const lineTotal = line.unitPrice * line.quantity - line.discountAmount - promotionDiscount;
               const isEditingPrice = editingPriceId === line.id;
 
@@ -390,7 +409,14 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
                         <Plus className="size-3" />
                       </Button>
                     </div>
-                    {promotionDiscount > 0 && line.product.activePromotion && (
+                    {lineEvaluation?.isMet && lineEvaluation.freeQuantity > 0 ? (
+                      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 min-w-0 font-medium">
+                        <Gift className="size-3 shrink-0" />
+                        <span className="truncate">
+                          Promotion: Give {lineEvaluation.freeQuantity} free {line.product.name}
+                        </span>
+                      </div>
+                    ) : promotionDiscount > 0 && line.product.activePromotion ? (
                       <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 min-w-0">
                         <Tag className="size-3 shrink-0" />
                         <span className="truncate">
@@ -398,7 +424,7 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
                           {formatCurrency(promotionDiscount)}
                         </span>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                   <div className="flex flex-col items-end gap-1.5 shrink-0">
                     <span className="text-sm font-semibold">{formatCurrency(lineTotal)}</span>
@@ -508,7 +534,11 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
               toast.error("Cash register is closed. Please open register to take payments.");
               return;
             }
-            setPaymentOpen(true);
+            if (activeEvaluations.length > 0) {
+              setPromotionAlertOpen(true);
+            } else {
+              setPaymentOpen(true);
+            }
           }}
           aria-keyshortcuts="F9 Control+Enter"
         >
@@ -516,6 +546,13 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
           <ShortcutHint keyName={chargeKeyDisplay} altKeyName="Ctrl+Enter" />
         </Button>
       </div>
+
+      <PromotionAlertDialog
+        open={promotionAlertOpen}
+        onOpenChange={setPromotionAlertOpen}
+        evaluations={activeEvaluations}
+        onProceed={() => setPaymentOpen(true)}
+      />
 
       <PaymentDialog
         open={paymentOpen}

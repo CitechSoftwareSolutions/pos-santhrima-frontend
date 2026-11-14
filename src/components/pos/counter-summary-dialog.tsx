@@ -1,6 +1,6 @@
 "use client";
 
-import { Printer, CheckCircle, Calendar, Receipt, CreditCard } from "lucide-react";
+import { Printer, CheckCircle, Calendar, Receipt, CreditCard, Tag } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -162,6 +162,29 @@ export function CounterSummaryDialog({
             ))}
           </div>
         </div>
+
+        {/* Promotion Records */}
+        {summary.promotions && summary.promotions.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              <Tag className="size-3.5 text-emerald-600" />
+              <span>Promotions Given</span>
+            </div>
+            <div className="rounded-lg border divide-y bg-card text-xs">
+              {summary.promotions.map((p, idx) => {
+                const cleanPromo = p.replace(/^(\d+)\.0+x/i, "$1x").replace(/^(\d+\.\d*?[1-9])0+x/i, "$1x");
+                return (
+                  <div key={idx} className="flex items-center justify-between p-2">
+                    <span className="font-medium text-emerald-800 dark:text-emerald-300 font-mono">
+                      {cleanPromo}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground font-semibold">Free</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0 mt-2">
           <Button
