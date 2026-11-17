@@ -124,11 +124,13 @@ function BillTabs({ isRegisterOpen = true }: { isRegisterOpen?: boolean }) {
 
 export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean } = {}) {
   const activeBill = useActiveBill();
-  const { lines, customerId, discountAmount, loyaltyPointsToRedeem } = activeBill;
+  const { lines, customerId, discountType, discountValue, discountAmount, loyaltyPointsToRedeem } = activeBill;
   const removeLine = useCartStore((s) => s.removeLine);
   const setQuantity = useCartStore((s) => s.setQuantity);
   const setUnitPrice = useCartStore((s) => s.setUnitPrice);
   const setCustomerId = useCartStore((s) => s.setCustomerId);
+  const setDiscountType = useCartStore((s) => s.setDiscountType);
+  const setDiscountValue = useCartStore((s) => s.setDiscountValue);
   const setDiscountAmount = useCartStore((s) => s.setDiscountAmount);
   const setLoyaltyPointsToRedeem = useCartStore((s) => s.setLoyaltyPointsToRedeem);
 
@@ -160,12 +162,26 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
     });
   }
 
+  const currentDiscountType = discountType ?? "fixed";
+  const currentDiscountValue = discountValue ?? discountAmount ?? 0;
+
   const rawSubTotal = lines.reduce((acc, l) => acc + l.unitPrice * l.quantity, 0);
+  const itemDiscountsTotal = lines.reduce((acc, l) => {
+    const promo = calculateLinePromotionDiscount(l);
+    return acc + l.discountAmount + promo;
+  }, 0);
+  const netBillAmount = Math.max(0, rawSubTotal - itemDiscountsTotal);
+
+  const computedBillDiscount =
+    currentDiscountType === "percentage"
+      ? Math.round(netBillAmount * (Math.min(100, Math.max(0, currentDiscountValue)) / 100) * 100) / 100
+      : Math.min(netBillAmount, Math.max(0, currentDiscountValue));
+
   const maxRedeemablePoints = customer?.canRedeemPoints
-    ? Math.min(customer.loyaltyPoints, Math.max(0, rawSubTotal - discountAmount))
+    ? Math.min(customer.loyaltyPoints, Math.max(0, netBillAmount - computedBillDiscount))
     : 0;
   const effectivePointsDiscount = Math.min(loyaltyPointsToRedeem || 0, maxRedeemablePoints);
-  const totals = calculateCartTotals(lines, discountAmount + effectivePointsDiscount);
+  const totals = calculateCartTotals(lines, computedBillDiscount + effectivePointsDiscount);
   const discountKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("discount", "D"));
   const chargeKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("charge", "F9"));
 
@@ -300,96 +316,140 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
             </p>
           </div>
         ) : (
-          <div className="divide-y">
-            {lines.map((line) => {
-              const step = line.product.allowDecimalQuantity ? 0.1 : 1;
-              const promotionDiscount = calculateLinePromotionDiscount(line);
-              const lineEvaluation = line.product.activePromotion
-                ? evaluatePromotion(line.product.activePromotion, line.product.name, line.quantity, line.unitPrice)
-                : null;
-              const lineTotal = line.unitPrice * line.quantity - line.discountAmount - promotionDiscount;
-              const isEditingPrice = editingPriceId === line.id;
+          <div>
+            {/* Bill Table Header */}
+            <div className="sticky top-0 z-10 grid grid-cols-[1fr_110px_90px_36px] items-center gap-2 border-b bg-muted/60 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider backdrop-blur-xs select-none">
+              <span>Item</span>
+              <span className="text-center">Count</span>
+              <span className="text-right">Total</span>
+              <span className="text-right"></span>
+            </div>
 
-              return (
-                <div
-                  key={line.id}
-                  tabIndex={0}
-                  aria-label={`Cart line ${line.product.name}`}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget) return; // Only when container is focused
-                    if (e.key === "Delete") {
-                      e.preventDefault();
-                      removeLine(line.id);
-                    } else if (e.key === "+" || e.key === "=") {
-                      e.preventDefault();
-                      if (line.quantity < line.product.stockQuantity) {
-                        setQuantity(line.id, line.quantity + step);
+            <div className="divide-y">
+              {lines.map((line) => {
+                const step = line.product.allowDecimalQuantity ? 0.1 : 1;
+                const effectiveSellingPrice =
+                  line.effectivePrice ?? (line.unitPrice - line.discountAmount / (line.quantity || 1));
+                const promotionDiscount = calculateLinePromotionDiscount(line);
+                const lineEvaluation = line.product.activePromotion
+                  ? evaluatePromotion(line.product.activePromotion, line.product.name, line.quantity, line.unitPrice)
+                  : null;
+                const lineTotal = line.unitPrice * line.quantity - line.discountAmount - promotionDiscount;
+                const isEditingPrice = editingPriceId === line.id;
+
+                return (
+                  <div
+                    key={line.id}
+                    tabIndex={0}
+                    aria-label={`Cart line ${line.product.name}`}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return; // Only when container is focused
+                      if (e.key === "Delete") {
+                        e.preventDefault();
+                        removeLine(line.id);
+                      } else if (e.key === "+" || e.key === "=") {
+                        e.preventDefault();
+                        if (line.quantity < line.product.stockQuantity) {
+                          setQuantity(line.id, line.quantity + step);
+                        }
+                      } else if (e.key === "-") {
+                        e.preventDefault();
+                        if (line.quantity > step) {
+                          setQuantity(line.id, line.quantity - step);
+                        }
+                      } else if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        const next = e.currentTarget.nextElementSibling as HTMLElement | null;
+                        next?.focus();
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        const prev = e.currentTarget.previousElementSibling as HTMLElement | null;
+                        prev?.focus();
                       }
-                    } else if (e.key === "-") {
-                      e.preventDefault();
-                      if (line.quantity > step) {
-                        setQuantity(line.id, line.quantity - step);
-                      }
-                    } else if (e.key === "ArrowDown") {
-                      e.preventDefault();
-                      const next = e.currentTarget.nextElementSibling as HTMLElement | null;
-                      next?.focus();
-                    } else if (e.key === "ArrowUp") {
-                      e.preventDefault();
-                      const prev = e.currentTarget.previousElementSibling as HTMLElement | null;
-                      prev?.focus();
-                    }
-                  }}
-                  className="flex items-start gap-2 p-3 transition-colors focus-visible:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 rounded-md"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{line.product.name}</p>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap mt-0.5">
-                      <span className="text-[11px] font-medium text-muted-foreground">
-                        MRP: {formatCurrency(line.product.mrp ?? line.product.retailPrice)}
-                      </span>
-                      <span className="text-muted-foreground/40">•</span>
-                      {isEditingPrice ? (
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          autoFocus
-                          className="h-6 w-24 text-xs"
-                          value={editingPriceValue}
-                          onChange={(e) => setEditingPriceValue(e.target.value)}
-                          onBlur={() => commitPrice(line.id)}
-                          onKeyDown={(e) => e.key === "Enter" && commitPrice(line.id)}
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingPriceValue(String(line.unitPrice));
-                            setEditingPriceId(line.id);
-                          }}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                          title="Click to edit selling price"
-                        >
-                          Price: {formatCurrency(line.unitPrice)} / {line.product.unit}
-                          <Pencil className="size-2.5" />
-                        </button>
-                      )}
+                    }}
+                    className="grid grid-cols-[1fr_110px_90px_36px] items-center gap-2 px-3 py-2.5 transition-colors hover:bg-muted/40 focus-visible:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+                  >
+                    {/* Item Details */}
+                    <div className="min-w-0 pr-1">
+                      <p
+                        className="text-xs sm:text-sm font-semibold text-foreground leading-snug break-words"
+                        title={line.product.name}
+                      >
+                        {line.product.name}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap mt-0.5">
+                        {isEditingPrice ? (
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            autoFocus
+                            className="h-5 w-20 text-[11px] px-1 py-0"
+                            value={editingPriceValue}
+                            onChange={(e) => setEditingPriceValue(e.target.value)}
+                            onBlur={() => commitPrice(line.id)}
+                            onKeyDown={(e) => e.key === "Enter" && commitPrice(line.id)}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPriceValue(String(effectiveSellingPrice));
+                              setEditingPriceId(line.id);
+                            }}
+                            className="flex items-center gap-1 hover:text-foreground font-medium text-muted-foreground transition-colors"
+                            title="Click to edit selling price"
+                          >
+                            <span>Price: {formatCurrency(effectiveSellingPrice)}</span>
+                            <span className="text-[10px] text-muted-foreground/70">/{line.product.unit}</span>
+                            <Pencil className="size-2.5 text-muted-foreground/60 hover:text-foreground" />
+                          </button>
+                        )}
+                        {line.unitPrice > effectiveSellingPrice && (
+                          <>
+                            <span className="line-through text-muted-foreground/50 text-[10px]">
+                              MRP: {formatCurrency(line.unitPrice)}
+                            </span>
+                            <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                              (-{formatCurrency(line.unitPrice - effectiveSellingPrice)} off)
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {lineEvaluation?.isMet && lineEvaluation.freeQuantity > 0 ? (
+                        <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 min-w-0 font-medium">
+                          <Gift className="size-2.5 shrink-0" />
+                          <span className="truncate">
+                            Give {lineEvaluation.freeQuantity} free {line.product.name}
+                          </span>
+                        </div>
+                      ) : promotionDiscount > 0 && line.product.activePromotion ? (
+                        <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 min-w-0 font-medium">
+                          <Tag className="size-2.5 shrink-0" />
+                          <span className="truncate">
+                            {describePromotion(line.product.activePromotion)} · -{formatCurrency(promotionDiscount)}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="mt-1.5 flex items-center gap-1.5">
+
+                    {/* Count / Qty Stepper */}
+                    <div className="flex items-center justify-center gap-1">
                       <Button
                         variant="outline"
                         size="icon"
-                        className="size-6"
+                        className="size-6.5 h-6.5 w-6.5 rounded shrink-0 p-0"
                         onClick={() => setQuantity(line.id, line.quantity - step)}
                         disabled={line.quantity <= step}
+                        title="Decrease count (-)"
                       >
                         <Minus className="size-3" />
                       </Button>
                       <Input
                         type="number"
                         step={step}
-                        className="h-6 w-16 text-center px-1 text-xs"
+                        className="h-6.5 w-12 text-center px-1 text-xs font-semibold tabular-nums"
                         value={quantityDraft?.id === line.id ? quantityDraft.value : line.quantity}
                         onFocus={() => setQuantityDraft({ id: line.id, value: String(line.quantity) })}
                         onChange={(e) => {
@@ -402,44 +462,38 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
                       <Button
                         variant="outline"
                         size="icon"
-                        className="size-6"
+                        className="size-6.5 h-6.5 w-6.5 rounded shrink-0 p-0"
                         onClick={() => setQuantity(line.id, line.quantity + step)}
                         disabled={line.quantity >= line.product.stockQuantity}
+                        title="Increase count (+)"
                       >
                         <Plus className="size-3" />
                       </Button>
                     </div>
-                    {lineEvaluation?.isMet && lineEvaluation.freeQuantity > 0 ? (
-                      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 min-w-0 font-medium">
-                        <Gift className="size-3 shrink-0" />
-                        <span className="truncate">
-                          Promotion: Give {lineEvaluation.freeQuantity} free {line.product.name}
-                        </span>
-                      </div>
-                    ) : promotionDiscount > 0 && line.product.activePromotion ? (
-                      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 min-w-0">
-                        <Tag className="size-3 shrink-0" />
-                        <span className="truncate">
-                          {describePromotion(line.product.activePromotion)} · -
-                          {formatCurrency(promotionDiscount)}
-                        </span>
-                      </div>
-                    ) : null}
+
+                    {/* Total */}
+                    <div className="text-right">
+                      <span className="text-xs sm:text-sm font-bold text-foreground tabular-nums">
+                        {formatCurrency(lineTotal)}
+                      </span>
+                    </div>
+
+                    {/* Delete */}
+                    <div className="flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 rounded text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => removeLine(line.id)}
+                        title="Delete item"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <span className="text-sm font-semibold">{formatCurrency(lineTotal)}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-6 text-muted-foreground hover:text-destructive"
-                      onClick={() => removeLine(line.id)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </ScrollArea>
@@ -449,22 +503,78 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
           <span className="text-muted-foreground">Subtotal</span>
           <span>{formatCurrency(totals.subTotal)}</span>
         </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground flex items-center gap-1.5">
-            Discount <ShortcutHint keyName={discountKeyDisplay} altKeyName={`Alt+${discountKeyDisplay}`} />
-          </span>
-          <div className="flex items-center gap-2">
-            <Input
-              id="pos-discount-input"
-              type="number"
-              min={0}
-              step="0.01"
-              aria-keyshortcuts="d Alt+d"
-              className="h-7 w-24 text-right text-xs"
-              value={discountAmount || ""}
-              placeholder="0.00"
-              onChange={(e) => setDiscountAmount(parseFloat(e.target.value) || 0)}
-            />
+        <div className="flex items-center justify-between text-sm gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <span className="text-muted-foreground flex items-center gap-1.5 shrink-0">
+              Discount <ShortcutHint keyName={discountKeyDisplay} altKeyName={`Alt+${discountKeyDisplay}`} />
+            </span>
+            <span
+              className={cn(
+                "text-xs tabular-nums px-2 py-0.5 rounded",
+                totals.totalDiscount > 0
+                  ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 font-semibold"
+                  : "text-muted-foreground/80 bg-muted/50 border border-border/40 font-medium"
+              )}
+            >
+              Total Discount: {totals.totalDiscount > 0 ? `-${formatCurrency(totals.totalDiscount)}` : formatCurrency(0)}
+            </span>
+            {currentDiscountType === "percentage" && currentDiscountValue > 0 && (
+              <span className="text-[11px] text-muted-foreground font-medium">
+                ({currentDiscountValue}% = -{formatCurrency(computedBillDiscount)})
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Toggle Fixed (Rs.) / Percentage (%) */}
+            <div className="inline-flex rounded-md border border-border/60 bg-muted/50 p-0.5 text-[11px] font-medium">
+              <button
+                type="button"
+                onClick={() => setDiscountType("fixed")}
+                className={cn(
+                  "px-1.5 py-0.5 rounded transition-all",
+                  currentDiscountType === "fixed"
+                    ? "bg-background text-foreground font-bold shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Fixed discount in Rs."
+              >
+                Rs
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiscountType("percentage")}
+                className={cn(
+                  "px-1.5 py-0.5 rounded transition-all",
+                  currentDiscountType === "percentage"
+                    ? "bg-background text-foreground font-bold shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Percentage discount (% on total bill amount)"
+              >
+                %
+              </button>
+            </div>
+
+            <div className="relative">
+              <Input
+                id="pos-discount-input"
+                type="number"
+                min={0}
+                max={currentDiscountType === "percentage" ? 100 : undefined}
+                step={currentDiscountType === "percentage" ? "1" : "0.01"}
+                aria-keyshortcuts="d Alt+d"
+                className="h-7 w-20 text-right text-xs pr-5"
+                value={currentDiscountValue || ""}
+                placeholder="0"
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value) || 0;
+                  setDiscountValue(currentDiscountType === "percentage" ? Math.min(100, val) : val);
+                }}
+              />
+              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none font-semibold">
+                {currentDiscountType === "percentage" ? "%" : "Rs"}
+              </span>
+            </div>
           </div>
         </div>
 

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { Menu, LogOut, User, Settings, Calendar, Clock } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Menu, LogOut, User, Settings, Calendar, Clock, Monitor, Lock, Unlock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +22,9 @@ import { SidebarNav } from "./sidebar-nav";
 import { useAuthStore } from "@/store/auth-store";
 import { useLogout } from "@/lib/hooks/use-auth";
 import { useStoreSettings, useToggleSalesShift } from "@/lib/hooks/use-settings";
+import { usePosHeaderStore } from "@/store/pos-header-store";
 import { ROLES } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 function initials(name: string) {
   return name
@@ -33,6 +36,9 @@ function initials(name: string) {
 }
 
 export function Topbar() {
+  const pathname = usePathname();
+  const isPosPage = pathname === "/pos";
+
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const [mounted, setMounted] = useState(false);
@@ -45,6 +51,15 @@ export function Topbar() {
   const isTransferActive = settings?.cashierSalesShiftEnabled ?? true;
 
   const [currentDateTime, setCurrentDateTime] = useState<Date | null>(null);
+
+  // POS topbar state
+  const isPosActive = usePosHeaderStore((s) => s.isPosActive);
+  const terminalName = usePosHeaderStore((s) => s.terminalName);
+  const isRegisterOpen = usePosHeaderStore((s) => s.isRegisterOpen);
+  const isProcessing = usePosHeaderStore((s) => s.isProcessing);
+  const onOpenRegister = usePosHeaderStore((s) => s.onOpenRegister);
+  const onCloseRegister = usePosHeaderStore((s) => s.onCloseRegister);
+  const onSwitchCounter = usePosHeaderStore((s) => s.onSwitchCounter);
 
   useEffect(() => {
     setMounted(true);
@@ -100,7 +115,6 @@ export function Topbar() {
     };
   }, []);
 
-
   const effectiveTransferActive = mounted ? isTransferActive : true;
 
   const formattedDate = currentDateTime
@@ -122,13 +136,13 @@ export function Topbar() {
     : "";
 
   return (
-    <header className="flex h-14 items-center justify-between gap-4 border-b bg-background px-4">
+    <header className="flex h-14 items-center justify-between gap-3 border-b bg-background px-3 sm:px-4 shrink-0">
       <div className="flex items-center gap-2">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden shrink-0"
             onClick={() => setMobileOpen(true)}
           >
             <Menu className="size-5" />
@@ -140,9 +154,78 @@ export function Topbar() {
         </Sheet>
       </div>
 
-      <div className="flex items-center gap-2.5">
-        {/* Live Date and Time (Left side of Sync Status Dot) */}
-        {mounted && currentDateTime && (
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        {/* POS Header Controls (Shifted to the right, directly beside the sync dot and user profile) */}
+        {isPosPage && isPosActive && (
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap mr-1">
+            {/* Counter Name */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/60 border border-border/50 text-xs font-semibold text-foreground shadow-2xs">
+              <Monitor className="size-3.5 text-primary shrink-0" />
+              <span className="truncate max-w-[150px] sm:max-w-none">
+                {terminalName || "Unassigned Counter"}
+              </span>
+            </div>
+
+            {/* Register Status Badge */}
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border select-none",
+                isRegisterOpen
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "border-border bg-muted/60 text-muted-foreground"
+              )}
+            >
+              <span
+                className={cn(
+                  "size-1.5 rounded-full",
+                  isRegisterOpen ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"
+                )}
+              />
+              {isRegisterOpen ? "Register Open" : "Register Closed"}
+            </span>
+
+            {/* Close / Open Register Action Button */}
+            {isRegisterOpen ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5 border-amber-500/40 text-amber-700 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-500/20 font-semibold shadow-2xs"
+                onClick={() => onCloseRegister?.()}
+                disabled={isProcessing}
+                title="Close cashier register and view today's counter summary"
+              >
+                <Lock className="size-3 text-amber-600 dark:text-amber-400" />
+                <span>{isProcessing ? "Closing..." : "Close Register"}</span>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="h-7 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+                onClick={() => onOpenRegister?.()}
+                disabled={isProcessing}
+                title="Open register to enable billing and product additions"
+              >
+                <Unlock className="size-3" />
+                <span>{isProcessing ? "Opening..." : "Open Register"}</span>
+              </Button>
+            )}
+
+            {/* Switch Counter Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground hover:bg-muted/70"
+              onClick={() => onSwitchCounter?.()}
+              title="Admin authorization required to switch counter"
+            >
+              <Lock className="size-3" />
+              <span>Switch</span>
+            </Button>
+          </div>
+        )}
+
+        {/* Live Date and Time (Left side of Sync Status Dot - REMOVED on POS page) */}
+        {mounted && currentDateTime && !isPosPage && (
           <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md bg-muted/40 border border-border/40 text-xs text-muted-foreground select-none">
             <Calendar className="size-3.5 text-muted-foreground/70" />
             <span className="font-medium text-foreground/80">{formattedDate}</span>
@@ -175,8 +258,6 @@ export function Topbar() {
             )}
           </span>
         </button>
-
-
 
         <DropdownMenu>
           <DropdownMenuTrigger

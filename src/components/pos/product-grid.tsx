@@ -18,7 +18,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { CategoryChips } from "@/components/pos/category-chips";
 import { ShortcutHint } from "@/components/pos/shortcut-hint";
 import { useProducts } from "@/lib/hooks/use-products";
 import { useCategories } from "@/lib/hooks/use-categories";
@@ -412,17 +411,6 @@ export function ProductGrid({
           </div>
         </div>
 
-        {/* Category Chips Bar */}
-        <div className="min-w-0 max-w-full overflow-hidden">
-          <CategoryChips
-            categories={categories}
-            categoryBindings={categoryBindings}
-            selectedId={categoryId}
-            onSelect={handleCategorySelect}
-            resultCount={totalCount}
-          />
-        </div>
-
         {/* Register Closed Notice */}
         {!isRegisterOpen && (
           <div className="flex items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
@@ -514,7 +502,7 @@ export function ProductGrid({
                       <div className="flex-1 min-w-0 pr-2">
                         <div className="flex items-center gap-2">
                           <span
-                            className="text-xs sm:text-sm font-medium leading-tight text-foreground truncate"
+                            className="text-xs sm:text-sm font-medium leading-tight text-foreground line-clamp-2 break-words"
                             title={product.name}
                           >
                             {product.name}

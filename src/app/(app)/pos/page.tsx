@@ -2,15 +2,12 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { toast } from "sonner";
-import { Monitor, Lock, Unlock, Wrench, Keyboard } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { CartPanel } from "@/components/pos/cart-panel";
 import { AddToCartDialog } from "@/components/pos/add-to-cart-dialog";
 import { AssignCounterModal } from "@/components/pos/assign-counter-modal";
 import { HardwareTestModal } from "@/components/pos/hardware-test-modal";
 import { ShortcutsDialog } from "@/components/pos/shortcuts-dialog";
-import { ShortcutHint } from "@/components/pos/shortcut-hint";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { CounterSummaryDialog } from "@/components/pos/counter-summary-dialog";
 import { useCartStore, useActiveBill } from "@/store/cart-store";
@@ -20,8 +17,8 @@ import { useCategories } from "@/lib/hooks/use-categories";
 import { usePosHotkeys } from "@/hooks/use-hotkeys";
 import { assignCategoryKeys } from "@/lib/hotkeys/config";
 import { useCurrentRegister, useOpenRegister, useCloseRegister } from "@/lib/hooks/use-register";
+import { usePosHeaderStore } from "@/store/pos-header-store";
 import { getApiErrorMessage } from "@/lib/api/client";
-import { cn } from "@/lib/utils";
 import type { ProductDto, CounterDailySummaryDto } from "@/lib/types";
 
 export default function PosPage() {
@@ -31,13 +28,11 @@ export default function PosPage() {
   const switchBill = useCartStore((s) => s.switchBill);
   const activeBill = useActiveBill();
 
-  const setCheatSheetOpen = useHotkeysStore((s) => s.setCheatSheetOpen);
-
   const [pendingProduct, setPendingProduct] = useState<ProductDto | null>(null);
   const [categoryId, setCategoryId] = useState<string>("all");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  const { activeTerminal, storeSettings, hasNoStoredTerminal, effectivePaperWidth } = useActiveTerminal();
+  const { activeTerminal, storeSettings, hasNoStoredTerminal } = useActiveTerminal();
   const [switchCounterOpen, setSwitchCounterOpen] = useState(false);
   const [hardwareTestOpen, setHardwareTestOpen] = useState(false);
 
@@ -223,6 +218,35 @@ export default function PosPage() {
     );
   }, [activeTerminal?.id, closeRegisterMutation]);
 
+  // Sync state and handlers to Topbar
+  const updatePosStatus = usePosHeaderStore((s) => s.updatePosStatus);
+  const clearPosStatus = usePosHeaderStore((s) => s.clearPosStatus);
+
+  useEffect(() => {
+    updatePosStatus({
+      terminalName: activeTerminal?.name ?? null,
+      isRegisterOpen,
+      isProcessing: openRegisterMutation.isPending || closeRegisterMutation.isPending,
+      onOpenRegister: handleOpenRegister,
+      onCloseRegister: handleCloseRegisterClick,
+      onSwitchCounter: () => setSwitchCounterOpen(true),
+    });
+  }, [
+    activeTerminal?.name,
+    isRegisterOpen,
+    openRegisterMutation.isPending,
+    closeRegisterMutation.isPending,
+    handleOpenRegister,
+    handleCloseRegisterClick,
+    updatePosStatus,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      clearPosStatus();
+    };
+  }, [clearPosStatus]);
+
   function handleSelect(product: ProductDto) {
     if (!isRegisterOpen) {
       toast.error("Cash register is closed. Please click 'Open Register' to begin billing.");
@@ -243,115 +267,10 @@ export default function PosPage() {
   }
 
   return (
-    <div className="flex flex-col gap-3 h-full">
-      {/* Cashier Terminal Station Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card/60 px-3 py-1.5 text-xs shadow-sm backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <Monitor className="size-3.5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5 font-semibold text-foreground">
-              <span>{activeTerminal?.name || "Unassigned Cashier Counter"}</span>
-              {activeTerminal && (
-                <span className="font-mono text-[11px] font-normal text-muted-foreground">
-                  ({activeTerminal.terminalCode})
-                </span>
-              )}
-            </div>
-          </div>
-          <span className="hidden sm:inline text-muted-foreground/60">|</span>
-          <p className="hidden sm:inline text-[11px] text-muted-foreground">
-            Printer: {activeTerminal?.printerType || "None"} ({effectivePaperWidth})
-          </p>
-
-          {activeTerminal && (
-            <span
-              className={cn(
-                "hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium border ml-1",
-                isRegisterOpen
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                  : "border-border bg-muted/60 text-muted-foreground"
-              )}
-            >
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  isRegisterOpen ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"
-                )}
-              />
-              {isRegisterOpen ? "Register Open" : "Register Closed"}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          {/* Shortcuts cheat-sheet button */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs gap-1.5"
-            onClick={() => setCheatSheetOpen(true)}
-            title="Keyboard Shortcuts Cheat-Sheet (? or Alt+H)"
-            aria-keyshortcuts="? Alt+h"
-          >
-            <Keyboard className="size-3" />
-            <span className="hidden sm:inline">Shortcuts</span>
-            <ShortcutHint keyName="?" altKeyName="Alt+H" />
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs gap-1.5"
-            onClick={() => setHardwareTestOpen(true)}
-            disabled={!activeTerminal}
-          >
-            <Wrench className="size-3" />
-            Test Hardware
-          </Button>
-
-          {/* Open / Close Register Button (between Test Hardware and Switch) */}
-          {isRegisterOpen ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs gap-1.5 border-amber-500/40 text-amber-700 hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-500/20 font-semibold"
-              onClick={handleCloseRegisterClick}
-              disabled={closeRegisterMutation.isPending}
-              title="Close cashier register and view today's counter summary"
-            >
-              <Lock className="size-3 text-amber-600 dark:text-amber-400" />
-              <span>{closeRegisterMutation.isPending ? "Closing..." : "Close Register"}</span>
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              className="h-7 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
-              onClick={handleOpenRegister}
-              disabled={!activeTerminal || openRegisterMutation.isPending}
-              title="Open register to enable billing and product additions"
-            >
-              <Unlock className="size-3" />
-              <span>{openRegisterMutation.isPending ? "Opening..." : "Open Register"}</span>
-            </Button>
-          )}
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-            onClick={() => setSwitchCounterOpen(true)}
-            title="Admin authorization required to switch counter"
-          >
-            <Lock className="size-3" />
-            Switch
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px] min-w-0 max-w-full">
-        <div className="min-w-0 max-w-full flex flex-col h-[calc(100vh-11.5rem)] min-h-[500px]">
+    <div className="flex flex-col h-full min-h-0">
+      {/* Main Billing Grid: trimmed product area with wider bill section */}
+      <div className="grid flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_580px] xl:grid-cols-[minmax(0,1fr)_620px] 2xl:grid-cols-[minmax(0,1fr)_660px] min-w-0 max-w-full h-full min-h-0">
+        <div className="min-w-0 max-w-full flex flex-col h-full min-h-0">
           <ProductGrid
             onSelect={handleSelect}
             categoryId={categoryId}
@@ -362,7 +281,7 @@ export default function PosPage() {
             onOpenRegister={handleOpenRegister}
           />
         </div>
-        <div className="min-w-0 h-[calc(100vh-11.5rem)] min-h-[500px] overflow-hidden lg:sticky lg:top-0">
+        <div className="min-w-0 h-full min-h-0 overflow-hidden">
           <CartPanel isRegisterOpen={isRegisterOpen} />
         </div>
 
