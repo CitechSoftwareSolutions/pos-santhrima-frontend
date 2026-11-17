@@ -2,12 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "./nav-items";
 import { useAuthStore } from "@/store/auth-store";
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarNav({
+  onNavigate,
+  isCollapsedRail = false,
+}: {
+  onNavigate?: () => void;
+  isCollapsedRail?: boolean;
+}) {
   const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
 
@@ -16,15 +22,34 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   );
 
   return (
-    <div className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-          <ShoppingBag className="size-4" />
+    <div
+      className={cn(
+        "flex h-full flex-col bg-sidebar text-sidebar-foreground",
+        isCollapsedRail
+          ? "w-16 group-hover/sidebar:w-64 transition-all duration-300 ease-in-out absolute inset-y-0 left-0 border-r z-50 shadow-none group-hover/sidebar:shadow-2xl overflow-hidden"
+          : "w-full"
+      )}
+    >
+      <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-3.5 overflow-hidden shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground shadow-xs">
+            <ShoppingBag className="size-4.5" />
+          </div>
+          <span
+            className={cn(
+              "text-sm font-semibold tracking-tight whitespace-nowrap transition-opacity duration-200",
+              isCollapsedRail ? "opacity-0 group-hover/sidebar:opacity-100" : "opacity-100"
+            )}
+          >
+            සන්ත්‍රිමා ස්ටෝර්ස්
+          </span>
         </div>
-        <span className="text-sm font-semibold tracking-tight">සන්ත්‍රිමා ස්ටෝර්ස්</span>
+        {isCollapsedRail && (
+          <ChevronRight className="size-4 shrink-0 text-sidebar-foreground/50 transition-transform duration-300 group-hover/sidebar:rotate-180" />
+        )}
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+      <nav className="flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden p-2">
         {items.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -33,15 +58,25 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
               key={item.href}
               href={item.href}
               onClick={onNavigate}
+              title={item.label}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors whitespace-nowrap",
                 active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
               )}
             >
-              <Icon className="size-4 shrink-0" />
-              {item.label}
+              <div className="flex size-6 shrink-0 items-center justify-center">
+                <Icon className="size-4.5 shrink-0" />
+              </div>
+              <span
+                className={cn(
+                  "transition-opacity duration-200 truncate",
+                  isCollapsedRail ? "opacity-0 group-hover/sidebar:opacity-100" : "opacity-100"
+                )}
+              >
+                {item.label}
+              </span>
             </Link>
           );
         })}

@@ -300,96 +300,133 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
             </p>
           </div>
         ) : (
-          <div className="divide-y">
-            {lines.map((line) => {
-              const step = line.product.allowDecimalQuantity ? 0.1 : 1;
-              const promotionDiscount = calculateLinePromotionDiscount(line);
-              const lineEvaluation = line.product.activePromotion
-                ? evaluatePromotion(line.product.activePromotion, line.product.name, line.quantity, line.unitPrice)
-                : null;
-              const lineTotal = line.unitPrice * line.quantity - line.discountAmount - promotionDiscount;
-              const isEditingPrice = editingPriceId === line.id;
+          <div>
+            {/* Bill Table Header */}
+            <div className="sticky top-0 z-10 grid grid-cols-[1fr_110px_90px_36px] items-center gap-2 border-b bg-muted/60 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider backdrop-blur-xs select-none">
+              <span>Item</span>
+              <span className="text-center">Count</span>
+              <span className="text-right">Total</span>
+              <span className="text-right"></span>
+            </div>
 
-              return (
-                <div
-                  key={line.id}
-                  tabIndex={0}
-                  aria-label={`Cart line ${line.product.name}`}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget) return; // Only when container is focused
-                    if (e.key === "Delete") {
-                      e.preventDefault();
-                      removeLine(line.id);
-                    } else if (e.key === "+" || e.key === "=") {
-                      e.preventDefault();
-                      if (line.quantity < line.product.stockQuantity) {
-                        setQuantity(line.id, line.quantity + step);
+            <div className="divide-y">
+              {lines.map((line) => {
+                const step = line.product.allowDecimalQuantity ? 0.1 : 1;
+                const promotionDiscount = calculateLinePromotionDiscount(line);
+                const lineEvaluation = line.product.activePromotion
+                  ? evaluatePromotion(line.product.activePromotion, line.product.name, line.quantity, line.unitPrice)
+                  : null;
+                const lineTotal = line.unitPrice * line.quantity - line.discountAmount - promotionDiscount;
+                const isEditingPrice = editingPriceId === line.id;
+
+                return (
+                  <div
+                    key={line.id}
+                    tabIndex={0}
+                    aria-label={`Cart line ${line.product.name}`}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return; // Only when container is focused
+                      if (e.key === "Delete") {
+                        e.preventDefault();
+                        removeLine(line.id);
+                      } else if (e.key === "+" || e.key === "=") {
+                        e.preventDefault();
+                        if (line.quantity < line.product.stockQuantity) {
+                          setQuantity(line.id, line.quantity + step);
+                        }
+                      } else if (e.key === "-") {
+                        e.preventDefault();
+                        if (line.quantity > step) {
+                          setQuantity(line.id, line.quantity - step);
+                        }
+                      } else if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        const next = e.currentTarget.nextElementSibling as HTMLElement | null;
+                        next?.focus();
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        const prev = e.currentTarget.previousElementSibling as HTMLElement | null;
+                        prev?.focus();
                       }
-                    } else if (e.key === "-") {
-                      e.preventDefault();
-                      if (line.quantity > step) {
-                        setQuantity(line.id, line.quantity - step);
-                      }
-                    } else if (e.key === "ArrowDown") {
-                      e.preventDefault();
-                      const next = e.currentTarget.nextElementSibling as HTMLElement | null;
-                      next?.focus();
-                    } else if (e.key === "ArrowUp") {
-                      e.preventDefault();
-                      const prev = e.currentTarget.previousElementSibling as HTMLElement | null;
-                      prev?.focus();
-                    }
-                  }}
-                  className="flex items-start gap-2 p-3 transition-colors focus-visible:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 rounded-md"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{line.product.name}</p>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap mt-0.5">
-                      <span className="text-[11px] font-medium text-muted-foreground">
-                        MRP: {formatCurrency(line.product.mrp ?? line.product.retailPrice)}
-                      </span>
-                      <span className="text-muted-foreground/40">•</span>
-                      {isEditingPrice ? (
-                        <Input
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          autoFocus
-                          className="h-6 w-24 text-xs"
-                          value={editingPriceValue}
-                          onChange={(e) => setEditingPriceValue(e.target.value)}
-                          onBlur={() => commitPrice(line.id)}
-                          onKeyDown={(e) => e.key === "Enter" && commitPrice(line.id)}
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingPriceValue(String(line.unitPrice));
-                            setEditingPriceId(line.id);
-                          }}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                          title="Click to edit selling price"
-                        >
-                          Price: {formatCurrency(line.unitPrice)} / {line.product.unit}
-                          <Pencil className="size-2.5" />
-                        </button>
-                      )}
+                    }}
+                    className="grid grid-cols-[1fr_110px_90px_36px] items-center gap-2 px-3 py-2.5 transition-colors hover:bg-muted/40 focus-visible:bg-accent/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+                  >
+                    {/* Item Details */}
+                    <div className="min-w-0 pr-1">
+                      <p
+                        className="text-xs sm:text-sm font-semibold text-foreground leading-snug break-words"
+                        title={line.product.name}
+                      >
+                        {line.product.name}
+                      </p>
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap mt-0.5">
+                        {isEditingPrice ? (
+                          <Input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            autoFocus
+                            className="h-5 w-20 text-[11px] px-1 py-0"
+                            value={editingPriceValue}
+                            onChange={(e) => setEditingPriceValue(e.target.value)}
+                            onBlur={() => commitPrice(line.id)}
+                            onKeyDown={(e) => e.key === "Enter" && commitPrice(line.id)}
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPriceValue(String(line.unitPrice));
+                              setEditingPriceId(line.id);
+                            }}
+                            className="flex items-center gap-1 hover:text-foreground font-medium text-muted-foreground transition-colors"
+                            title="Click to edit selling price"
+                          >
+                            <span>Price: {formatCurrency(line.unitPrice)}</span>
+                            <span className="text-[10px] text-muted-foreground/70">/{line.product.unit}</span>
+                            <Pencil className="size-2.5 text-muted-foreground/60 hover:text-foreground" />
+                          </button>
+                        )}
+                        {line.product.mrp && line.product.mrp > line.unitPrice && (
+                          <span className="line-through text-muted-foreground/50 text-[10px]">
+                            {formatCurrency(line.product.mrp)}
+                          </span>
+                        )}
+                      </div>
+
+                      {lineEvaluation?.isMet && lineEvaluation.freeQuantity > 0 ? (
+                        <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 min-w-0 font-medium">
+                          <Gift className="size-2.5 shrink-0" />
+                          <span className="truncate">
+                            Give {lineEvaluation.freeQuantity} free {line.product.name}
+                          </span>
+                        </div>
+                      ) : promotionDiscount > 0 && line.product.activePromotion ? (
+                        <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 min-w-0 font-medium">
+                          <Tag className="size-2.5 shrink-0" />
+                          <span className="truncate">
+                            {describePromotion(line.product.activePromotion)} · -{formatCurrency(promotionDiscount)}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
-                    <div className="mt-1.5 flex items-center gap-1.5">
+
+                    {/* Count / Qty Stepper */}
+                    <div className="flex items-center justify-center gap-1">
                       <Button
                         variant="outline"
                         size="icon"
-                        className="size-6"
+                        className="size-6.5 h-6.5 w-6.5 rounded shrink-0 p-0"
                         onClick={() => setQuantity(line.id, line.quantity - step)}
                         disabled={line.quantity <= step}
+                        title="Decrease count (-)"
                       >
                         <Minus className="size-3" />
                       </Button>
                       <Input
                         type="number"
                         step={step}
-                        className="h-6 w-16 text-center px-1 text-xs"
+                        className="h-6.5 w-12 text-center px-1 text-xs font-semibold tabular-nums"
                         value={quantityDraft?.id === line.id ? quantityDraft.value : line.quantity}
                         onFocus={() => setQuantityDraft({ id: line.id, value: String(line.quantity) })}
                         onChange={(e) => {
@@ -402,44 +439,38 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
                       <Button
                         variant="outline"
                         size="icon"
-                        className="size-6"
+                        className="size-6.5 h-6.5 w-6.5 rounded shrink-0 p-0"
                         onClick={() => setQuantity(line.id, line.quantity + step)}
                         disabled={line.quantity >= line.product.stockQuantity}
+                        title="Increase count (+)"
                       >
                         <Plus className="size-3" />
                       </Button>
                     </div>
-                    {lineEvaluation?.isMet && lineEvaluation.freeQuantity > 0 ? (
-                      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 min-w-0 font-medium">
-                        <Gift className="size-3 shrink-0" />
-                        <span className="truncate">
-                          Promotion: Give {lineEvaluation.freeQuantity} free {line.product.name}
-                        </span>
-                      </div>
-                    ) : promotionDiscount > 0 && line.product.activePromotion ? (
-                      <div className="mt-1.5 flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 min-w-0">
-                        <Tag className="size-3 shrink-0" />
-                        <span className="truncate">
-                          {describePromotion(line.product.activePromotion)} · -
-                          {formatCurrency(promotionDiscount)}
-                        </span>
-                      </div>
-                    ) : null}
+
+                    {/* Total */}
+                    <div className="text-right">
+                      <span className="text-xs sm:text-sm font-bold text-foreground tabular-nums">
+                        {formatCurrency(lineTotal)}
+                      </span>
+                    </div>
+
+                    {/* Delete */}
+                    <div className="flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 rounded text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => removeLine(line.id)}
+                        title="Delete item"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <span className="text-sm font-semibold">{formatCurrency(lineTotal)}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-6 text-muted-foreground hover:text-destructive"
-                      onClick={() => removeLine(line.id)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </ScrollArea>
