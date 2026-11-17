@@ -137,7 +137,7 @@ export function Topbar() {
 
   return (
     <header className="flex h-14 items-center justify-between gap-3 border-b bg-background px-3 sm:px-4 shrink-0">
-      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+      <div className="flex items-center gap-2">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <Button
             variant="ghost"
@@ -152,11 +152,13 @@ export function Topbar() {
             <SidebarNav onNavigate={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>
+      </div>
 
-        {/* POS Header Controls (Shown only on /pos in the empty space) */}
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        {/* POS Header Controls (Shifted to the right, directly beside the sync dot and user profile) */}
         {isPosPage && isPosActive && (
-          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
-            {/* Counter Name (No COUNTER-01 code, no printer string) */}
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap mr-1">
+            {/* Counter Name */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/60 border border-border/50 text-xs font-semibold text-foreground shadow-2xs">
               <Monitor className="size-3.5 text-primary shrink-0" />
               <span className="truncate max-w-[150px] sm:max-w-none">
@@ -221,9 +223,7 @@ export function Topbar() {
             </Button>
           </div>
         )}
-      </div>
 
-      <div className="flex items-center gap-2.5 shrink-0">
         {/* Live Date and Time (Left side of Sync Status Dot - REMOVED on POS page) */}
         {mounted && currentDateTime && !isPosPage && (
           <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-md bg-muted/40 border border-border/40 text-xs text-muted-foreground select-none">
