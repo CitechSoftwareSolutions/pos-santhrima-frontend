@@ -124,11 +124,13 @@ function BillTabs({ isRegisterOpen = true }: { isRegisterOpen?: boolean }) {
 
 export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean } = {}) {
   const activeBill = useActiveBill();
-  const { lines, customerId, discountAmount, loyaltyPointsToRedeem } = activeBill;
+  const { lines, customerId, discountType, discountValue, discountAmount, loyaltyPointsToRedeem } = activeBill;
   const removeLine = useCartStore((s) => s.removeLine);
   const setQuantity = useCartStore((s) => s.setQuantity);
   const setUnitPrice = useCartStore((s) => s.setUnitPrice);
   const setCustomerId = useCartStore((s) => s.setCustomerId);
+  const setDiscountType = useCartStore((s) => s.setDiscountType);
+  const setDiscountValue = useCartStore((s) => s.setDiscountValue);
   const setDiscountAmount = useCartStore((s) => s.setDiscountAmount);
   const setLoyaltyPointsToRedeem = useCartStore((s) => s.setLoyaltyPointsToRedeem);
 
@@ -160,12 +162,26 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
     });
   }
 
+  const currentDiscountType = discountType ?? "fixed";
+  const currentDiscountValue = discountValue ?? discountAmount ?? 0;
+
   const rawSubTotal = lines.reduce((acc, l) => acc + l.unitPrice * l.quantity, 0);
+  const itemDiscountsTotal = lines.reduce((acc, l) => {
+    const promo = calculateLinePromotionDiscount(l);
+    return acc + l.discountAmount + promo;
+  }, 0);
+  const netBillAmount = Math.max(0, rawSubTotal - itemDiscountsTotal);
+
+  const computedBillDiscount =
+    currentDiscountType === "percentage"
+      ? Math.round(netBillAmount * (Math.min(100, Math.max(0, currentDiscountValue)) / 100) * 100) / 100
+      : Math.min(netBillAmount, Math.max(0, currentDiscountValue));
+
   const maxRedeemablePoints = customer?.canRedeemPoints
-    ? Math.min(customer.loyaltyPoints, Math.max(0, rawSubTotal - discountAmount))
+    ? Math.min(customer.loyaltyPoints, Math.max(0, netBillAmount - computedBillDiscount))
     : 0;
   const effectivePointsDiscount = Math.min(loyaltyPointsToRedeem || 0, maxRedeemablePoints);
-  const totals = calculateCartTotals(lines, discountAmount + effectivePointsDiscount);
+  const totals = calculateCartTotals(lines, computedBillDiscount + effectivePointsDiscount);
   const discountKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("discount", "D"));
   const chargeKeyDisplay = useHotkeysStore((s) => s.getActionDisplay("charge", "F9"));
 
@@ -312,6 +328,8 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
             <div className="divide-y">
               {lines.map((line) => {
                 const step = line.product.allowDecimalQuantity ? 0.1 : 1;
+                const effectiveSellingPrice =
+                  line.effectivePrice ?? (line.unitPrice - line.discountAmount / (line.quantity || 1));
                 const promotionDiscount = calculateLinePromotionDiscount(line);
                 const lineEvaluation = line.product.activePromotion
                   ? evaluatePromotion(line.product.activePromotion, line.product.name, line.quantity, line.unitPrice)
@@ -376,21 +394,26 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
                           <button
                             type="button"
                             onClick={() => {
-                              setEditingPriceValue(String(line.unitPrice));
+                              setEditingPriceValue(String(effectiveSellingPrice));
                               setEditingPriceId(line.id);
                             }}
                             className="flex items-center gap-1 hover:text-foreground font-medium text-muted-foreground transition-colors"
                             title="Click to edit selling price"
                           >
-                            <span>Price: {formatCurrency(line.unitPrice)}</span>
+                            <span>Price: {formatCurrency(effectiveSellingPrice)}</span>
                             <span className="text-[10px] text-muted-foreground/70">/{line.product.unit}</span>
                             <Pencil className="size-2.5 text-muted-foreground/60 hover:text-foreground" />
                           </button>
                         )}
-                        {line.product.mrp && line.product.mrp > line.unitPrice && (
-                          <span className="line-through text-muted-foreground/50 text-[10px]">
-                            {formatCurrency(line.product.mrp)}
-                          </span>
+                        {line.unitPrice > effectiveSellingPrice && (
+                          <>
+                            <span className="line-through text-muted-foreground/50 text-[10px]">
+                              MRP: {formatCurrency(line.unitPrice)}
+                            </span>
+                            <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                              (-{formatCurrency(line.unitPrice - effectiveSellingPrice)} off)
+                            </span>
+                          </>
                         )}
                       </div>
 
@@ -480,22 +503,78 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
           <span className="text-muted-foreground">Subtotal</span>
           <span>{formatCurrency(totals.subTotal)}</span>
         </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground flex items-center gap-1.5">
-            Discount <ShortcutHint keyName={discountKeyDisplay} altKeyName={`Alt+${discountKeyDisplay}`} />
-          </span>
-          <div className="flex items-center gap-2">
-            <Input
-              id="pos-discount-input"
-              type="number"
-              min={0}
-              step="0.01"
-              aria-keyshortcuts="d Alt+d"
-              className="h-7 w-24 text-right text-xs"
-              value={discountAmount || ""}
-              placeholder="0.00"
-              onChange={(e) => setDiscountAmount(parseFloat(e.target.value) || 0)}
-            />
+        <div className="flex items-center justify-between text-sm gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <span className="text-muted-foreground flex items-center gap-1.5 shrink-0">
+              Discount <ShortcutHint keyName={discountKeyDisplay} altKeyName={`Alt+${discountKeyDisplay}`} />
+            </span>
+            <span
+              className={cn(
+                "text-xs tabular-nums px-2 py-0.5 rounded",
+                totals.totalDiscount > 0
+                  ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 font-semibold"
+                  : "text-muted-foreground/80 bg-muted/50 border border-border/40 font-medium"
+              )}
+            >
+              Total Discount: {totals.totalDiscount > 0 ? `-${formatCurrency(totals.totalDiscount)}` : formatCurrency(0)}
+            </span>
+            {currentDiscountType === "percentage" && currentDiscountValue > 0 && (
+              <span className="text-[11px] text-muted-foreground font-medium">
+                ({currentDiscountValue}% = -{formatCurrency(computedBillDiscount)})
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Toggle Fixed (Rs.) / Percentage (%) */}
+            <div className="inline-flex rounded-md border border-border/60 bg-muted/50 p-0.5 text-[11px] font-medium">
+              <button
+                type="button"
+                onClick={() => setDiscountType("fixed")}
+                className={cn(
+                  "px-1.5 py-0.5 rounded transition-all",
+                  currentDiscountType === "fixed"
+                    ? "bg-background text-foreground font-bold shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Fixed discount in Rs."
+              >
+                Rs
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiscountType("percentage")}
+                className={cn(
+                  "px-1.5 py-0.5 rounded transition-all",
+                  currentDiscountType === "percentage"
+                    ? "bg-background text-foreground font-bold shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title="Percentage discount (% on total bill amount)"
+              >
+                %
+              </button>
+            </div>
+
+            <div className="relative">
+              <Input
+                id="pos-discount-input"
+                type="number"
+                min={0}
+                max={currentDiscountType === "percentage" ? 100 : undefined}
+                step={currentDiscountType === "percentage" ? "1" : "0.01"}
+                aria-keyshortcuts="d Alt+d"
+                className="h-7 w-20 text-right text-xs pr-5"
+                value={currentDiscountValue || ""}
+                placeholder="0"
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value) || 0;
+                  setDiscountValue(currentDiscountType === "percentage" ? Math.min(100, val) : val);
+                }}
+              />
+              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground pointer-events-none font-semibold">
+                {currentDiscountType === "percentage" ? "%" : "Rs"}
+              </span>
+            </div>
           </div>
         </div>
 

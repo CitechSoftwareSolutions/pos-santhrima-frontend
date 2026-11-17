@@ -24,6 +24,7 @@ import { useActiveTerminal } from "@/lib/hooks/use-active-terminal";
 import { useStoreSettings } from "@/lib/hooks/use-settings";
 import { printReceipt } from "@/lib/receipt-printer";
 import { evaluatePromotion } from "@/lib/promotion-utils";
+import { calculateLinePromotionDiscount } from "@/lib/cart-calc";
 
 const METHOD_OPTIONS = [
   PaymentMethod.Cash,
@@ -87,8 +88,21 @@ export function PaymentDialog({
 
     const billId = activeBill.id;
 
+    const discountType = activeBill.discountType ?? "fixed";
+    const discountValue = activeBill.discountValue ?? activeBill.discountAmount ?? 0;
     const rawSubTotal = lines.reduce((acc, l) => acc + l.unitPrice * l.quantity, 0);
-    const safePoints = Math.min(loyaltyPointsToRedeem || 0, Math.max(0, rawSubTotal - discountAmount));
+    const itemDiscountsTotal = lines.reduce((acc, l) => {
+      const promo = calculateLinePromotionDiscount(l);
+      return acc + l.discountAmount + promo;
+    }, 0);
+    const netBillAmount = Math.max(0, rawSubTotal - itemDiscountsTotal);
+
+    const effectiveDiscountAmount =
+      discountType === "percentage"
+        ? Math.round(netBillAmount * (Math.min(100, Math.max(0, discountValue)) / 100) * 100) / 100
+        : Math.min(netBillAmount, Math.max(0, discountValue));
+
+    const safePoints = Math.min(loyaltyPointsToRedeem || 0, Math.max(0, netBillAmount - effectiveDiscountAmount));
 
     createSale.mutate(
       {
@@ -100,7 +114,7 @@ export function PaymentDialog({
           unitPrice: l.unitPrice,
         })),
         payments: [{ method, amount: amountPaid, referenceNumber: null }],
-        discountAmount,
+        discountAmount: effectiveDiscountAmount,
         loyaltyPointsRedeemed: safePoints,
         notes: notes || null,
         terminalId: activeTerminal?.id ?? null,
