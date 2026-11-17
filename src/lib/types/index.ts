@@ -127,6 +127,8 @@ export interface ProductDto {
   isLowStock: boolean;
   priceTiers: PriceTierDto[];
   activePromotion: PromotionSummaryDto | null;
+  supplierId?: string | null;
+  supplierName?: string | null;
 }
 
 export interface CreateProductRequest {
@@ -136,6 +138,7 @@ export interface CreateProductRequest {
   brand?: string | null;
   description?: string | null;
   categoryId: string;
+  supplierId?: string | null;
   costPrice: number;
   retailPrice: number;
   mrp?: number | null;
@@ -157,6 +160,7 @@ export interface UpdateProductRequest {
   brand?: string | null;
   description?: string | null;
   categoryId: string;
+  supplierId?: string | null;
   costPrice: number;
   retailPrice: number;
   mrp?: number | null;
@@ -173,6 +177,7 @@ export interface UpdateProductRequest {
 
 export interface ProductQueryParams extends PaginationParams {
   categoryId?: string;
+  supplierId?: string;
   isActive?: boolean;
   lowStockOnly?: boolean;
 }

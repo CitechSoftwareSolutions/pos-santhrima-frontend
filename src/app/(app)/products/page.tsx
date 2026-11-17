@@ -37,7 +37,8 @@ import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { productsApi } from "@/lib/api/products";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { formatCurrency } from "@/lib/format";
-import { ROLES, type ProductDto } from "@/lib/types";
+import { SupplierCombobox } from "@/components/shared/supplier-combobox";
+import { ROLES, type ProductDto, type SupplierDto } from "@/lib/types";
 
 interface PriceTierRow {
   key: string;
@@ -53,6 +54,8 @@ interface ProductFormState {
   name: string;
   description: string;
   categoryId: string;
+  supplierId: string;
+  supplierName: string;
   costPrice: string;
   retailPrice: string;
   mrp: string;
@@ -99,6 +102,8 @@ const emptyForm: ProductFormState = {
   name: "",
   description: "",
   categoryId: "",
+  supplierId: "",
+  supplierName: "",
   costPrice: "",
   retailPrice: "",
   mrp: "",
@@ -177,6 +182,8 @@ function ProductsPageContent() {
       name: product.name,
       description: product.description ?? "",
       categoryId: product.categoryId,
+      supplierId: product.supplierId ?? "",
+      supplierName: product.supplierName ?? "",
       costPrice: String(product.costPrice),
       retailPrice: String(product.retailPrice),
       mrp: product.mrp !== null && product.mrp !== undefined ? String(product.mrp) : String(product.retailPrice),
@@ -308,6 +315,7 @@ function ProductsPageContent() {
       name: form.name,
       description: form.description || null,
       categoryId: form.categoryId,
+      supplierId: form.supplierId || null,
       costPrice: parseFloat(form.costPrice) || 0,
       retailPrice: baseRetail,
       mrp: parseFloat(form.mrp) || baseRetail,
@@ -500,7 +508,15 @@ function ProductsPageContent() {
                   <TableRow key={product.id}>
                     <TableCell>
                       <div className="font-medium">{product.name}</div>
-                      <div className="text-xs text-muted-foreground">{product.sku}</div>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>{product.sku}</span>
+                        {product.supplierName && (
+                          <>
+                            <span>·</span>
+                            <span className="text-primary font-medium">{product.supplierName}</span>
+                          </>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">{product.categoryName}</TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
@@ -650,6 +666,14 @@ function ProductsPageContent() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Supplier</Label>
+              <SupplierCombobox
+                value={form.supplierId ? ({ id: form.supplierId, name: form.supplierName } as SupplierDto) : null}
+                onSelect={(s) => setForm((prev) => ({ ...prev, supplierId: s.id, supplierName: s.name }))}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
