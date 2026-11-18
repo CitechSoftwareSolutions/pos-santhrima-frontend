@@ -17,6 +17,7 @@ import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
 import { useHotkeysStore } from "@/store/hotkeys-store";
 import { ShortcutHint } from "./shortcut-hint";
+import { useTranslation } from "@/i18n/use-translation";
 import type { CustomerDto } from "@/lib/types";
 
 export function CustomerPicker({
@@ -26,6 +27,7 @@ export function CustomerPicker({
   customerId: string | null;
   onChange: (customer: CustomerDto | null) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 200);
@@ -69,9 +71,9 @@ export function CustomerPicker({
               </span>
             </span>
           ) : customerId && singleCustomerQuery.isLoading ? (
-            <span className="text-muted-foreground truncate">Loading customer...</span>
+            <span className="text-muted-foreground truncate">{t("common", "loading")}</span>
           ) : (
-            "Walk-in customer"
+            t("customerPicker", "walkInCustomer")
           )}
         </span>
         <span className="flex items-center gap-1.5">
@@ -104,13 +106,13 @@ export function CustomerPicker({
       <PopoverContent className="w-(--anchor-width) p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Search customers by name or phone..."
+            placeholder={t("customerPicker", "searchCustomer")}
             value={search}
             onValueChange={setSearch}
             autoFocus
           />
           <CommandList>
-            <CommandEmpty>No customers found.</CommandEmpty>
+            <CommandEmpty>{t("customerPicker", "noCustomerFound")}</CommandEmpty>
             <CommandGroup>
               <CommandItem
                 onSelect={() => {
@@ -120,7 +122,7 @@ export function CustomerPicker({
                 }}
               >
                 <Check className={cn("size-4", !customerId ? "opacity-100" : "opacity-0")} />
-                Walk-in customer
+                {t("customerPicker", "walkInCustomer")}
               </CommandItem>
               {customersQuery.data?.items.map((customer) => (
                 <CommandItem

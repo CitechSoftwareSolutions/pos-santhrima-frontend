@@ -1,5 +1,7 @@
 import { formatCurrency, formatDate } from "./format";
 import { generateBarcodeSvg } from "./barcode-svg";
+import { useLanguageStore } from "@/i18n/language-store";
+import { translations, type Language } from "@/i18n/translations";
 import {
   PaymentMethodLabels,
   type SaleDto,
@@ -11,12 +13,16 @@ import {
 interface PrintReceiptOptions {
   settings?: StoreSettingsDto | null;
   terminal?: TerminalDto | null;
+  language?: Language;
 }
 
 export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
   if (typeof window === "undefined") return;
 
   const { settings, terminal } = options || {};
+  const lang = options?.language || useLanguageStore.getState().language || "en";
+  const isSi = lang === "si";
+
   const paperWidth = terminal?.paperWidth || settings?.defaultPaperWidth || "80mm";
   const is58mm = paperWidth === "58mm";
   const containerWidth = is58mm ? "48mm" : "74mm";
@@ -26,7 +32,11 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
   const storeAddress = settings?.storeAddress || "";
   const storePhone = settings?.storePhone || "";
   const receiptHeader = settings?.receiptHeader || "";
-  const receiptFooter = settings?.receiptFooter || "Thank you for shopping with us! Please come again.";
+  const receiptFooter =
+    settings?.receiptFooter ||
+    (isSi
+      ? translations.si.receipt.footer
+      : "Thank you for shopping with us! Please come again.");
 
   const counterName = sale.terminalName || terminal?.name || "";
 
@@ -44,7 +54,7 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
         ${
           item.freeQuantity && item.freeQuantity > 0
             ? `<div style="font-size: ${is58mm ? "10px" : "11px"}; font-weight: 600; color: #15803d; margin-top: 1px;">
-                Free: ${item.freeQuantity}x ${escapeHtml(item.promotionName || "Promotion")}
+                ${isSi ? translations.si.receipt.free : "Free"}: ${item.freeQuantity}x ${escapeHtml(item.promotionName || "Promotion")}
               </div>`
             : ""
         }
@@ -57,7 +67,11 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
     .map(
       (p) => `
       <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-        <span>${PaymentMethodLabels[p.method] || "Payment"}:</span>
+        <span>${escapeHtml(
+          isSi
+            ? (translations.si.paymentMethods as any)[p.method] || PaymentMethodLabels[p.method]
+            : PaymentMethodLabels[p.method] || "Payment"
+        )}:</span>
         <span style="font-weight: 500;">${formatCurrency(p.amount)}</span>
       </div>
     `,
@@ -93,7 +107,7 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
             overflow: visible !important;
           }
           body {
-            font-family: 'Nirmala UI', 'Courier New', Courier, monospace, sans-serif;
+            font-family: 'Noto Sans Sinhala', 'Nirmala UI', 'Courier New', Courier, monospace, sans-serif;
             width: ${containerWidth};
             max-width: ${containerWidth};
             margin: 0 auto;
@@ -140,7 +154,7 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
         <div class="text-center">
           <div class="title">${escapeHtml(storeName)}</div>
           ${storeAddress ? `<div class="subtitle">${escapeHtml(storeAddress)}</div>` : ""}
-          ${storePhone ? `<div class="subtitle">Tel: ${escapeHtml(storePhone)}</div>` : ""}
+          ${storePhone ? `<div class="subtitle">${isSi ? translations.si.receipt.tel : "Tel"}: ${escapeHtml(storePhone)}</div>` : ""}
           ${receiptHeader ? `<div class="subtitle" style="margin-top: 3px; font-style: italic;">${escapeHtml(receiptHeader)}</div>` : ""}
         </div>
 
@@ -148,22 +162,22 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
 
         <!-- SALE METADATA -->
         <div class="row">
-          <span>Receipt #:</span>
+          <span>${isSi ? translations.si.receipt.receiptNo : "Receipt #"}:</span>
           <span class="bold">${escapeHtml(sale.saleNumber)}</span>
         </div>
         <div class="row">
-          <span>Date:</span>
+          <span>${isSi ? translations.si.receipt.date : "Date"}:</span>
           <span>${formatDate(sale.saleDate)}</span>
         </div>
         <div class="row">
-          <span>Cashier:</span>
+          <span>${isSi ? translations.si.receipt.cashier : "Cashier"}:</span>
           <span>${escapeHtml(sale.cashierName)}</span>
         </div>
         ${
           counterName
             ? `
         <div class="row">
-          <span>Counter:</span>
+          <span>${isSi ? translations.si.receipt.counter : "Counter"}:</span>
           <span>${escapeHtml(counterName)}</span>
         </div>`
             : ""
@@ -172,7 +186,7 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
           sale.customerName
             ? `
         <div class="row">
-          <span>Customer:</span>
+          <span>${isSi ? translations.si.receipt.customer : "Customer"}:</span>
           <span class="bold">${escapeHtml(sale.customerName)}</span>
         </div>`
             : ""
@@ -182,8 +196,8 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
 
         <!-- ITEMS HEADER -->
         <div class="row bold" style="font-size: ${is58mm ? "10px" : "11px"}; text-transform: uppercase;">
-          <span>Item</span>
-          <span>Total</span>
+          <span>${isSi ? translations.si.receipt.item : "Item"}</span>
+          <span>${isSi ? translations.si.common.total : "Total"}</span>
         </div>
         <div class="divider" style="margin: 2px 0 4px 0;"></div>
 
@@ -194,14 +208,14 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
 
         <!-- TOTALS & DISCOUNTS -->
         <div class="row">
-          <span>Subtotal:</span>
+          <span>${isSi ? translations.si.receipt.subtotal : "Subtotal"}:</span>
           <span>${formatCurrency(sale.subTotal)}</span>
         </div>
         ${
           sale.loyaltyPointsRedeemed > 0
             ? `
         <div class="row">
-          <span>Points Redeemed (${sale.loyaltyPointsRedeemed.toFixed(2)} pts):</span>
+          <span>${isSi ? translations.si.receipt.pointsRedeemed : "Points Redeemed"} (${sale.loyaltyPointsRedeemed.toFixed(2)} pts):</span>
           <span>-${formatCurrency(sale.loyaltyPointsRedeemed)}</span>
         </div>`
             : ""
@@ -212,8 +226,8 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
             .map(
               (i) => `
         <div class="row" style="color: #15803d; font-weight: 600;">
-          <span>${i.freeQuantity}x ${escapeHtml(i.promotionName || "Discount")}:</span>
-          <span>Free</span>
+          <span>${i.freeQuantity}x ${escapeHtml(i.promotionName || (isSi ? "වට්ටම" : "Discount"))}:</span>
+          <span>${isSi ? translations.si.receipt.free : "Free"}</span>
         </div>`,
             )
             .join("")
@@ -222,7 +236,7 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
           sale.discountAmount > 0
             ? `
         <div class="row">
-          <span>Discount:</span>
+          <span>${isSi ? translations.si.receipt.discount : "Discount"}:</span>
           <span>-${formatCurrency(sale.discountAmount)}</span>
         </div>`
             : ""
@@ -231,7 +245,7 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
           sale.taxAmount > 0
             ? `
         <div class="row">
-          <span>Tax:</span>
+          <span>${isSi ? translations.si.receipt.tax : "Tax"}:</span>
           <span>${formatCurrency(sale.taxAmount)}</span>
         </div>`
             : ""
@@ -240,7 +254,7 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
         <div class="double-divider"></div>
 
         <div class="total-row">
-          <span>TOTAL:</span>
+          <span>${isSi ? translations.si.receipt.total : "TOTAL"}:</span>
           <span>${formatCurrency(sale.totalAmount)}</span>
         </div>
 
@@ -252,7 +266,7 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
           sale.changeDue > 0
             ? `
         <div class="row bold">
-          <span>Change:</span>
+          <span>${isSi ? translations.si.receipt.change : "Change"}:</span>
           <span>${formatCurrency(sale.changeDue)}</span>
         </div>`
             : ""
@@ -263,7 +277,7 @@ export function printReceipt(sale: SaleDto, options?: PrintReceiptOptions) {
             ? `
         <div class="divider"></div>
         <div class="row" style="font-size: 11px;">
-          <span>Royalty Points Earned:</span>
+          <span>${isSi ? translations.si.receipt.pointsEarned : "Royalty Points Earned"}:</span>
           <span class="bold">+${sale.loyaltyPointsEarned.toFixed(2)} pts</span>
         </div>`
             : ""

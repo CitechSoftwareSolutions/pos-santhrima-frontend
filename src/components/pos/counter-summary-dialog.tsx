@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { printRegisterSummaryReport } from "@/lib/receipt-printer";
 import { useStoreSettings } from "@/lib/hooks/use-settings";
+import { useTranslation } from "@/i18n/use-translation";
 import type { CounterDailySummaryDto, TerminalDto } from "@/lib/types";
 
 interface CounterSummaryDialogProps {
@@ -29,6 +30,7 @@ export function CounterSummaryDialog({
   onOpenChange,
   terminal,
 }: CounterSummaryDialogProps) {
+  const { t } = useTranslation();
   const settingsQuery = useStoreSettings();
 
   if (!summary) return null;
@@ -51,10 +53,10 @@ export function CounterSummaryDialog({
             </div>
             <div>
               <DialogTitle className="text-base sm:text-lg">
-                Daily Counter Summary
+                {t("counterSummary", "title")}
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Register closed successfully. Here is today&apos;s counter performance.
+                {t("counterSummary", "desc")}
               </DialogDescription>
             </div>
           </div>
@@ -63,7 +65,7 @@ export function CounterSummaryDialog({
         {/* Counter & Session Details */}
         <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Counter:</span>
+            <span className="text-muted-foreground">{t("receipt", "counter")}:</span>
             <span className="font-semibold text-foreground">
               {summary.counterName}{" "}
               {summary.terminalCode && (
@@ -74,12 +76,12 @@ export function CounterSummaryDialog({
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">Cashier:</span>
+            <span className="text-muted-foreground">{t("receipt", "cashier")}:</span>
             <span className="font-medium text-foreground">{summary.cashierName}</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground flex items-center gap-1">
-              <Calendar className="size-3" /> Duration:
+              <Calendar className="size-3" /> {t("receipt", "date")}:
             </span>
             <span className="text-foreground font-mono">
               {formatDate(summary.openedAt)} — {formatDate(summary.closedAt)}
@@ -90,7 +92,7 @@ export function CounterSummaryDialog({
         {/* Sales Overview */}
         <div className="grid grid-cols-2 gap-2 text-center">
           <div className="rounded-lg border bg-card p-2.5">
-            <p className="text-[11px] text-muted-foreground">Total Invoices</p>
+            <p className="text-[11px] text-muted-foreground">{t("counterSummary", "billsCount")}</p>
             <p className="text-lg font-bold text-foreground mt-0.5 flex items-center justify-center gap-1">
               <Receipt className="size-4 text-primary" />
               {summary.totalSalesCount}
@@ -98,7 +100,7 @@ export function CounterSummaryDialog({
           </div>
           <div className="rounded-lg border bg-emerald-500/10 border-emerald-500/20 p-2.5">
             <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
-              Net Sales Revenue
+              {t("counterSummary", "totalSales")}
             </p>
             <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
               {formatCurrency(summary.totalRevenue)}
@@ -109,12 +111,12 @@ export function CounterSummaryDialog({
         {/* Financial Breakdown */}
         <div className="space-y-1.5 text-xs border rounded-lg p-3 bg-card">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Gross Sales:</span>
+            <span className="text-muted-foreground">{t("receipt", "subtotal")}:</span>
             <span>{formatCurrency(summary.subTotal)}</span>
           </div>
           {summary.totalDiscount > 0 && (
             <div className="flex justify-between text-amber-600 dark:text-amber-400">
-              <span>Total Discounts:</span>
+              <span>{t("counterSummary", "discountsGiven")}:</span>
               <span>-{formatCurrency(summary.totalDiscount)}</span>
             </div>
           )}
@@ -193,7 +195,7 @@ export function CounterSummaryDialog({
             className="w-full sm:w-auto text-xs"
             onClick={() => onOpenChange(false)}
           >
-            Done
+            {t("common", "done")}
           </Button>
           <Button
             type="button"
@@ -201,7 +203,7 @@ export function CounterSummaryDialog({
             onClick={handlePrint}
           >
             <Printer className="size-3.5" />
-            Print Bill
+            {t("counterSummary", "printReport")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useTranslation } from "@/i18n/use-translation";
 
 export function ConfirmDialog({
   open,
@@ -17,6 +18,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Confirm",
+  cancelLabel,
   destructive = true,
   onConfirm,
   loading,
@@ -26,10 +28,14 @@ export function ConfirmDialog({
   title: string;
   description?: string;
   confirmLabel?: string;
+  cancelLabel?: string;
   destructive?: boolean;
   onConfirm: () => void;
   loading?: boolean;
 }) {
+  const { t } = useTranslation();
+  const effectiveCancel = cancelLabel || t("common", "cancel");
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -38,7 +44,7 @@ export function ConfirmDialog({
           {description && <AlertDialogDescription>{description}</AlertDialogDescription>}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>{effectiveCancel}</AlertDialogCancel>
           <AlertDialogAction
             className={destructive ? "bg-destructive hover:bg-destructive/90 text-white" : ""}
             disabled={loading}
@@ -47,7 +53,7 @@ export function ConfirmDialog({
               onConfirm();
             }}
           >
-            {loading ? "Please wait..." : confirmLabel}
+            {loading ? t("common", "loading") : confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -52,6 +52,7 @@ interface ProductFormState {
   sku: string;
   barcode: string;
   name: string;
+  nameSi: string;
   description: string;
   categoryId: string;
   supplierId: string;
@@ -100,6 +101,7 @@ const emptyForm: ProductFormState = {
   sku: "",
   barcode: "",
   name: "",
+  nameSi: "",
   description: "",
   categoryId: "",
   supplierId: "",
@@ -180,6 +182,7 @@ function ProductsPageContent() {
       sku: product.sku,
       barcode: product.barcode ?? "",
       name: product.name,
+      nameSi: product.nameSi ?? "",
       description: product.description ?? "",
       categoryId: product.categoryId,
       supplierId: product.supplierId ?? "",
@@ -313,6 +316,7 @@ function ProductsPageContent() {
       sku: form.sku,
       barcode: form.barcode || null,
       name: form.name,
+      nameSi: form.nameSi?.trim() || null,
       description: form.description || null,
       categoryId: form.categoryId,
       supplierId: form.supplierId || null,
@@ -507,7 +511,14 @@ function ProductsPageContent() {
                 {products.data.items.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell>
-                      <div className="font-medium">{product.name}</div>
+                      <div className="font-medium">
+                        {product.name}
+                        {product.nameSi && (
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            ({product.nameSi})
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                         <span>{product.sku}</span>
                         {product.supplierName && (
@@ -622,9 +633,24 @@ function ProductsPageContent() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Name (English)</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. Samba Rice 5kg"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Name in Sinhala (සිංහල) - Optional</Label>
+                <Input
+                  value={form.nameSi}
+                  onChange={(e) => setForm({ ...form, nameSi: e.target.value })}
+                  placeholder="උදා: සම්බා සහල් 5kg"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

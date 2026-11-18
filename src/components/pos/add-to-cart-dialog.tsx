@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils";
 import type { ProductDto } from "@/lib/types";
 import { useHotkeysStore } from "@/store/hotkeys-store";
 import { keyCodeToDisplay } from "@/lib/hotkeys/config";
+import { useTranslation } from "@/i18n/use-translation";
+import { getProductName } from "@/lib/product-display";
 
 const PRICE_KINDS: PriceKind[] = ["mrp", "retail", "wholesale", "special"];
 
@@ -40,6 +42,7 @@ function AddToCartForm({
   onCancel: () => void;
   onConfirm: (quantity: number, unitPrice: number) => void;
 }) {
+  const { t, language } = useTranslation();
   const [quantity, setQuantity] = useState("1");
   const [priceKind, setPriceKind] = useState<PriceKind>("mrp");
   const [priceTouched, setPriceTouched] = useState(false);
@@ -174,20 +177,20 @@ function AddToCartForm({
   return (
     <div onKeyDown={handleKeyDown} className="space-y-4 outline-none">
       <DialogHeader>
-        <DialogTitle>{product.name}</DialogTitle>
+        <DialogTitle>{getProductName(product, language)}</DialogTitle>
         <DialogDescription className="flex items-center gap-1.5 flex-wrap">
           <span>{product.sku}</span>
           <span>·</span>
-          <span>{product.stockQuantity} {product.unit} in stock</span>
+          <span>{product.stockQuantity} {product.unit} {t("productDialog", "availableStock")}</span>
           <span>·</span>
           <span className="font-semibold text-foreground">
-            MRP: {formatCurrency(product.mrp ?? product.retailPrice)}
+            {t("productDialog", "mrp")}: {formatCurrency(product.mrp ?? product.retailPrice)}
           </span>
           {product.retailPrice && product.mrp && product.retailPrice !== product.mrp ? (
             <>
               <span>·</span>
               <span className="text-muted-foreground">
-                Retail: {formatCurrency(product.retailPrice)}
+                {t("productDialog", "retail")}: {formatCurrency(product.retailPrice)}
               </span>
             </>
           ) : null}
@@ -211,7 +214,7 @@ function AddToCartForm({
       {/* Quantity Input */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label htmlFor="qty-input">Quantity ({product.unit})</Label>
+          <Label htmlFor="qty-input">{t("productDialog", "quantity")} ({product.unit})</Label>
           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
             Adjust: <ShortcutHint keyName="+" /> <ShortcutHint keyName="-" />
           </span>
@@ -335,17 +338,17 @@ function AddToCartForm({
 
       {/* Line Total */}
       <div className="flex items-center justify-between rounded-lg bg-muted p-3 text-sm">
-        <span className="text-muted-foreground">Line Total</span>
+        <span className="text-muted-foreground">{t("common", "total")}</span>
         <span className="text-base font-semibold">{formatCurrency(lineTotal)}</span>
       </div>
 
       <DialogFooter className="gap-2 sm:gap-0">
         <Button variant="outline" onClick={onCancel} className="gap-1.5">
-          <span>Cancel</span>
+          <span>{t("common", "cancel")}</span>
           <ShortcutHint keyName="Esc" />
         </Button>
         <Button onClick={handleFormConfirm} disabled={!validQty || !validPrice} className="gap-1.5">
-          <span>Add to Bill</span>
+          <span>{t("productDialog", "addToBill")}</span>
           <ShortcutHint keyName="Enter" />
         </Button>
       </DialogFooter>
