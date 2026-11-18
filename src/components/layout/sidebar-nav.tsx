@@ -6,6 +6,7 @@ import { ShoppingBag, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "./nav-items";
 import { useAuthStore } from "@/store/auth-store";
+import { useTranslation } from "@/i18n/use-translation";
 
 export function SidebarNav({
   onNavigate,
@@ -16,6 +17,7 @@ export function SidebarNav({
 }) {
   const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
+  const { t } = useTranslation();
 
   const items = NAV_ITEMS.filter(
     (item) => !item.roles || item.roles.some((r) => user?.roles.includes(r)),
@@ -53,12 +55,13 @@ export function SidebarNav({
         {items.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           const Icon = item.icon;
+          const displayLabel = item.translationKey ? t("nav", item.translationKey) : item.label;
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={onNavigate}
-              title={item.label}
+              title={displayLabel}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors whitespace-nowrap",
                 active
@@ -75,7 +78,7 @@ export function SidebarNav({
                   isCollapsedRail ? "opacity-0 group-hover/sidebar:opacity-100" : "opacity-100"
                 )}
               >
-                {item.label}
+                {displayLabel}
               </span>
             </Link>
           );

@@ -25,6 +25,8 @@ import { useStoreSettings, useToggleSalesShift } from "@/lib/hooks/use-settings"
 import { usePosHeaderStore } from "@/store/pos-header-store";
 import { ROLES } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { LanguageToggle } from "./language-toggle";
+import { useTranslation } from "@/i18n/use-translation";
 
 function initials(name: string) {
   return name
@@ -39,6 +41,7 @@ export function Topbar() {
   const pathname = usePathname();
   const isPosPage = pathname === "/pos";
 
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const logout = useLogout();
   const [mounted, setMounted] = useState(false);
@@ -162,7 +165,7 @@ export function Topbar() {
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/60 border border-border/50 text-xs font-semibold text-foreground shadow-2xs">
               <Monitor className="size-3.5 text-primary shrink-0" />
               <span className="truncate max-w-[150px] sm:max-w-none">
-                {terminalName || "Unassigned Counter"}
+                {terminalName || t("pos", "unassignedCounter")}
               </span>
             </div>
 
@@ -181,7 +184,7 @@ export function Topbar() {
                   isRegisterOpen ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"
                 )}
               />
-              {isRegisterOpen ? "Register Open" : "Register Closed"}
+              {isRegisterOpen ? t("pos", "registerOpen") : t("pos", "registerClosed")}
             </span>
 
             {/* Close / Open Register Action Button */}
@@ -195,7 +198,7 @@ export function Topbar() {
                 title="Close cashier register and view today's counter summary"
               >
                 <Lock className="size-3 text-amber-600 dark:text-amber-400" />
-                <span>{isProcessing ? "Closing..." : "Close Register"}</span>
+                <span>{isProcessing ? t("pos", "closing") : t("pos", "closeRegister")}</span>
               </Button>
             ) : (
               <Button
@@ -206,7 +209,7 @@ export function Topbar() {
                 title="Open register to enable billing and product additions"
               >
                 <Unlock className="size-3" />
-                <span>{isProcessing ? "Opening..." : "Open Register"}</span>
+                <span>{isProcessing ? t("pos", "opening") : t("pos", "openRegister")}</span>
               </Button>
             )}
 
@@ -219,7 +222,7 @@ export function Topbar() {
               title="Admin authorization required to switch counter"
             >
               <Lock className="size-3" />
-              <span>Switch</span>
+              <span>{t("pos", "switchCounter")}</span>
             </Button>
           </div>
         )}
@@ -236,6 +239,9 @@ export function Topbar() {
             </span>
           </div>
         )}
+
+        {/* Language Switcher */}
+        <LanguageToggle />
 
         {/* Status Dot */}
         <button
@@ -289,14 +295,14 @@ export function Topbar() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem render={<Link href="/settings" className="flex items-center gap-2 w-full" />}>
                   <Settings className="size-4" />
-                  Settings
+                  {t("nav", "settings")}
                 </DropdownMenuItem>
               </>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => logout()}>
               <LogOut className="size-4" />
-              Sign out
+              {t("nav", "logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

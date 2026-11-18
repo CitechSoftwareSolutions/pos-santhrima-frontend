@@ -13,6 +13,7 @@ import { ReceiptView } from "./receipt-view";
 import { printReceipt } from "@/lib/receipt-printer";
 import { useStoreSettings } from "@/lib/hooks/use-settings";
 import { useActiveTerminal } from "@/lib/hooks/use-active-terminal";
+import { useTranslation } from "@/i18n/use-translation";
 import type { SaleDto } from "@/lib/types";
 
 export function ReceiptDialog({
@@ -24,6 +25,7 @@ export function ReceiptDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const settingsQuery = useStoreSettings();
   const { activeTerminal } = useActiveTerminal();
 
@@ -39,7 +41,7 @@ export function ReceiptDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm max-h-[90vh] flex flex-col p-4 overflow-hidden">
         <DialogHeader className="shrink-0">
-          <DialogTitle className="sr-only">Receipt</DialogTitle>
+          <DialogTitle className="sr-only">{t("receipt", "salesReceipt")}</DialogTitle>
         </DialogHeader>
         {sale && (
           <div
@@ -52,10 +54,10 @@ export function ReceiptDialog({
         <DialogFooter className="shrink-0 pt-2 border-t print:hidden flex items-center justify-end gap-2">
           <Button variant="outline" size="sm" onClick={handlePrint}>
             <Printer className="size-4" />
-            Print
+            {t("common", "print")}
           </Button>
           <Button size="sm" onClick={() => onOpenChange(false)}>
-            Done
+            {t("common", "done")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -25,6 +25,7 @@ import { useStoreSettings } from "@/lib/hooks/use-settings";
 import { printReceipt } from "@/lib/receipt-printer";
 import { evaluatePromotion } from "@/lib/promotion-utils";
 import { calculateLinePromotionDiscount } from "@/lib/cart-calc";
+import { useTranslation } from "@/i18n/use-translation";
 
 const METHOD_OPTIONS = [
   PaymentMethod.Cash,
@@ -50,6 +51,11 @@ export function PaymentDialog({
   const createSale = useCreateSale();
   const { activeTerminal } = useActiveTerminal();
   const settingsQuery = useStoreSettings();
+  const { t } = useTranslation();
+
+  const getMethodLabel = (m: PaymentMethod) => {
+    return t("paymentMethods", m as 1 | 2 | 3 | 4 | 5 | 6) || PaymentMethodLabels[m];
+  };
 
   const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.Cash);
   const [amount, setAmount] = useState("");
@@ -158,8 +164,8 @@ export function PaymentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Take Payment</DialogTitle>
-            <DialogDescription>Total due: {formatCurrency(totalAmount)}</DialogDescription>
+            <DialogTitle>{t("pos", "takePayment")}</DialogTitle>
+            <DialogDescription>{t("pos", "totalDue")}: {formatCurrency(totalAmount)}</DialogDescription>
           </DialogHeader>
 
           {activePromotions.some((p) => p.freeQuantity > 0) && (
@@ -199,11 +205,11 @@ export function PaymentDialog({
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Payment Method</Label>
+              <Label>{t("pos", "paymentMethod")}</Label>
               <Select
                 items={METHOD_OPTIONS.map((m) => ({
                   value: String(m),
-                  label: PaymentMethodLabels[m],
+                  label: getMethodLabel(m),
                 }))}
                 value={String(method)}
                 onValueChange={(v) => {
@@ -214,7 +220,7 @@ export function PaymentDialog({
                   <SelectValue>
                     {(val: string | null) =>
                       val != null && Number(val) in PaymentMethodLabels
-                        ? PaymentMethodLabels[Number(val) as PaymentMethod]
+                        ? getMethodLabel(Number(val) as PaymentMethod)
                         : val
                     }
                   </SelectValue>
@@ -222,7 +228,7 @@ export function PaymentDialog({
                 <SelectContent>
                   {METHOD_OPTIONS.map((m) => (
                     <SelectItem key={m} value={String(m)}>
-                      {PaymentMethodLabels[m]}
+                      {getMethodLabel(m)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -230,7 +236,7 @@ export function PaymentDialog({
             </div>
 
             <div className="space-y-2">
-              <Label>Amount Received</Label>
+              <Label>{t("pos", "amountReceived")}</Label>
               <Input
                 type="number"
                 min={0}
@@ -265,7 +271,7 @@ export function PaymentDialog({
 
             {method === PaymentMethod.Cash && (
               <div className="flex items-center justify-between rounded-lg bg-muted p-3 text-sm">
-                <span className="text-muted-foreground">Change due</span>
+                <span className="text-muted-foreground">{t("pos", "changeDue")}</span>
                 <span className="text-base font-semibold">{formatCurrency(changeDue)}</span>
               </div>
             )}
@@ -273,10 +279,10 @@ export function PaymentDialog({
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel [Esc]
+              {t("common", "cancel")} [Esc]
             </Button>
             <Button onClick={handleConfirm} disabled={createSale.isPending}>
-              {createSale.isPending ? "Processing..." : "Complete Sale [Enter]"}
+              {createSale.isPending ? t("pos", "processing") : `${t("pos", "completeSale")} [Enter]`}
             </Button>
           </DialogFooter>
         </DialogContent>

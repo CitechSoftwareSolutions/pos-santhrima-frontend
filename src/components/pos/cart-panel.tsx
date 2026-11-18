@@ -33,8 +33,11 @@ import { cn } from "@/lib/utils";
 import { getApiErrorMessage } from "@/lib/api/client";
 import { ShortcutHint } from "./shortcut-hint";
 import { useHotkeysStore } from "@/store/hotkeys-store";
+import { useTranslation } from "@/i18n/use-translation";
+import { getProductName } from "@/lib/product-display";
 
 function BillTabs({ isRegisterOpen = true }: { isRegisterOpen?: boolean }) {
+  const { t } = useTranslation();
   const bills = useCartStore((s) => s.bills);
   const activeBillId = useCartStore((s) => s.activeBillId);
   const addBill = useCartStore((s) => s.addBill);
@@ -110,9 +113,10 @@ function BillTabs({ isRegisterOpen = true }: { isRegisterOpen?: boolean }) {
       <ConfirmDialog
         open={!!closeTarget}
         onOpenChange={(o) => !o && setCloseTarget(null)}
-        title={`Close ${targetBill?.label ?? "bill"}?`}
-        description="This bill has items in it. Closing it will discard them permanently."
-        confirmLabel="Close bill"
+        title={t("pos", "closeBillConfirmTitle")}
+        description={t("pos", "closeBillConfirmDesc")}
+        confirmLabel={t("pos", "clearBill")}
+        cancelLabel={t("common", "cancel")}
         onConfirm={() => {
           if (closeTarget) closeBill(closeTarget);
           setCloseTarget(null);
@@ -123,6 +127,7 @@ function BillTabs({ isRegisterOpen = true }: { isRegisterOpen?: boolean }) {
 }
 
 export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean } = {}) {
+  const { t, language } = useTranslation();
   const activeBill = useActiveBill();
   const { lines, customerId, discountType, discountValue, discountAmount, loyaltyPointsToRedeem } = activeBill;
   const removeLine = useCartStore((s) => s.removeLine);
@@ -311,17 +316,22 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
             <ShoppingCart className="size-8 opacity-40" />
             <p className="text-sm font-medium">
               {isRegisterOpen
-                ? "Cart is empty. Select products to begin."
-                : "Register is closed. Click 'Open Register' to begin adding bills."}
+                ? t("pos", "cartEmpty")
+                : t("pos", "searchClosedPlaceholder")}
             </p>
+            {isRegisterOpen && (
+              <p className="text-xs text-muted-foreground/80">
+                {t("pos", "cartEmptySub")}
+              </p>
+            )}
           </div>
         ) : (
           <div>
             {/* Bill Table Header */}
             <div className="sticky top-0 z-10 grid grid-cols-[1fr_110px_90px_36px] items-center gap-2 border-b bg-muted/60 px-3 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider backdrop-blur-xs select-none">
-              <span>Item</span>
-              <span className="text-center">Count</span>
-              <span className="text-right">Total</span>
+              <span>{t("pos", "items")}</span>
+              <span className="text-center">{t("pos", "qty")}</span>
+              <span className="text-right">{t("common", "total")}</span>
               <span className="text-right"></span>
             </div>
 
@@ -373,9 +383,9 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
                     <div className="min-w-0 pr-1">
                       <p
                         className="text-xs sm:text-sm font-semibold text-foreground leading-snug break-words"
-                        title={line.product.name}
+                        title={getProductName(line.product, language)}
                       >
-                        {line.product.name}
+                        {getProductName(line.product, language)}
                       </p>
                       <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap mt-0.5">
                         {isEditingPrice ? (
@@ -400,7 +410,7 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
                             className="flex items-center gap-1 hover:text-foreground font-medium text-muted-foreground transition-colors"
                             title="Click to edit selling price"
                           >
-                            <span>Price: {formatCurrency(effectiveSellingPrice)}</span>
+                            <span>{t("pos", "price")}: {formatCurrency(effectiveSellingPrice)}</span>
                             <span className="text-[10px] text-muted-foreground/70">/{line.product.unit}</span>
                             <Pencil className="size-2.5 text-muted-foreground/60 hover:text-foreground" />
                           </button>
@@ -500,13 +510,13 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
 
       <div className="shrink-0 space-y-2 border-t p-3 bg-card shadow-sm">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Subtotal</span>
+          <span className="text-muted-foreground">{t("common", "subtotal")}</span>
           <span>{formatCurrency(totals.subTotal)}</span>
         </div>
         <div className="flex items-center justify-between text-sm gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <span className="text-muted-foreground flex items-center gap-1.5 shrink-0">
-              Discount <ShortcutHint keyName={discountKeyDisplay} altKeyName={`Alt+${discountKeyDisplay}`} />
+              {t("common", "discount")} <ShortcutHint keyName={discountKeyDisplay} altKeyName={`Alt+${discountKeyDisplay}`} />
             </span>
             <span
               className={cn(
@@ -516,7 +526,7 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
                   : "text-muted-foreground/80 bg-muted/50 border border-border/40 font-medium"
               )}
             >
-              Total Discount: {totals.totalDiscount > 0 ? `-${formatCurrency(totals.totalDiscount)}` : formatCurrency(0)}
+              {t("pos", "totalDiscount")}: {totals.totalDiscount > 0 ? `-${formatCurrency(totals.totalDiscount)}` : formatCurrency(0)}
             </span>
             {currentDiscountType === "percentage" && currentDiscountValue > 0 && (
               <span className="text-[11px] text-muted-foreground font-medium">
@@ -582,7 +592,7 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
           <div className="flex items-center justify-between gap-2 text-xs text-amber-700 dark:text-amber-400">
             <span className="flex items-center gap-1 font-medium truncate">
               <Award className="size-3.5 text-amber-600 shrink-0" />
-              Redeem Points ({customer.loyaltyPoints.toFixed(2)} available)
+              {t("pos", "redeemPoints")} ({customer.loyaltyPoints.toFixed(2)} {t("pos", "available")})
             </span>
             <div className="flex items-center gap-1.5 shrink-0">
               <Input
@@ -611,7 +621,7 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
                   }
                 }}
               >
-                {effectivePointsDiscount > 0 ? "Clear" : "Max"}
+                {effectivePointsDiscount > 0 ? t("common", "clear") : "Max"}
               </Button>
             </div>
           </div>
@@ -619,18 +629,18 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
 
         {effectivePointsDiscount > 0 && (
           <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 font-medium">
-            <span>Points Discount (1 pt = Rs. 1)</span>
+            <span>{t("pos", "pointsDiscount")} (1 pt = Rs. 1)</span>
             <span>-{formatCurrency(effectivePointsDiscount)}</span>
           </div>
         )}
 
         <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">Tax</span>
+          <span className="text-muted-foreground">{t("common", "tax")}</span>
           <span>{formatCurrency(totals.itemTax)}</span>
         </div>
         <Separator />
         <div className="flex items-center justify-between text-base font-semibold">
-          <span>Total</span>
+          <span>{t("common", "total")}</span>
           <span>{formatCurrency(totals.totalAmount)}</span>
         </div>
 
@@ -652,7 +662,7 @@ export function CartPanel({ isRegisterOpen = true }: { isRegisterOpen?: boolean 
           }}
           aria-keyshortcuts="F9 Control+Enter"
         >
-          <span>Charge {formatCurrency(totals.totalAmount)}</span>
+          <span>{t("pos", "charge")} {formatCurrency(totals.totalAmount)}</span>
           <ShortcutHint keyName={chargeKeyDisplay} altKeyName="Ctrl+Enter" />
         </Button>
       </div>

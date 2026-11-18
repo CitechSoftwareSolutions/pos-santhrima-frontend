@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils";
 import type { ProductDto } from "@/lib/types";
 import { isTypingTarget, isAnyDialogOpen, type CategoryKeyBinding } from "@/lib/hotkeys/config";
 import { useHotkeysStore } from "@/store/hotkeys-store";
+import { useTranslation } from "@/i18n/use-translation";
+import { getProductName } from "@/lib/product-display";
 import { toast } from "sonner";
 
 interface ProductGridProps {
@@ -51,6 +53,7 @@ export function ProductGrid({
   isRegisterOpen = true,
   onOpenRegister,
 }: ProductGridProps) {
+  const { t, language } = useTranslation();
   const [internalCategoryId, setInternalCategoryId] = useState<string>("all");
   const categoryId = externalCategoryId ?? internalCategoryId;
 
@@ -363,8 +366,8 @@ export function ProductGrid({
               autoFocus
               placeholder={
                 isRegisterOpen
-                  ? "Search products, or scan barcode + Enter"
-                  : "Register is closed. Click 'Open Register' to begin billing..."
+                  ? t("pos", "searchPlaceholder")
+                  : t("pos", "searchClosedPlaceholder")
               }
               className="pl-9 pr-16 w-full"
               value={search}
@@ -503,9 +506,9 @@ export function ProductGrid({
                         <div className="flex items-center gap-2">
                           <span
                             className="text-xs sm:text-sm font-medium leading-tight text-foreground line-clamp-2 break-words"
-                            title={product.name}
+                            title={getProductName(product, language)}
                           >
-                            {product.name}
+                            {getProductName(product, language)}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground flex-wrap mt-0.5">
@@ -602,7 +605,7 @@ export function ProductGrid({
                     >
                       <div className="flex w-full items-start justify-between gap-1.5">
                         <span className="text-xs sm:text-sm font-medium leading-snug line-clamp-2 text-foreground">
-                          {product.name}
+                          {getProductName(product, language)}
                         </span>
                       </div>
 

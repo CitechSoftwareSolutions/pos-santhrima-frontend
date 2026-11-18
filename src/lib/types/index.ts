@@ -108,6 +108,7 @@ export interface ProductDto {
   sku: string;
   barcode: string | null;
   name: string;
+  nameSi?: string | null;
   brand?: string | null;
   description: string | null;
   categoryId: string;
@@ -135,6 +136,7 @@ export interface CreateProductRequest {
   sku: string;
   barcode?: string | null;
   name: string;
+  nameSi?: string | null;
   brand?: string | null;
   description?: string | null;
   categoryId: string;
@@ -157,6 +159,7 @@ export interface UpdateProductRequest {
   sku: string;
   barcode?: string | null;
   name: string;
+  nameSi?: string | null;
   brand?: string | null;
   description?: string | null;
   categoryId: string;
